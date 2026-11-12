@@ -38,7 +38,12 @@ class FakeResponse:
         self.payload = payload
 
     def raise_for_status(self):
-        pass
+        if isinstance(self.payload, int):  # an HTTP error status
+            raise requests.HTTPError(f"{self.payload} Error", response=self)
+
+    @property
+    def status_code(self):
+        return self.payload
 
     def json(self):
         if self.payload is NOT_JSON:
@@ -67,9 +72,10 @@ class FakeSession:
 def test_fetch_jobs_queries_every_source(raw_jobs):
     session = FakeSession({"data": raw_jobs})
 
-    jobs = fetch_jobs(session=session, delay=0)
+    jobs, failed = fetch_jobs(session=session, delay=0)
 
     assert len(session.urls) == len(SOURCES)
+    assert failed == []
     assert len(jobs) == len(raw_jobs) * len(SOURCES)
 
 
@@ -77,9 +83,10 @@ def test_fetch_jobs_retries_with_exponential_backoff(raw_jobs):
     session = FakeSession({"data": raw_jobs}, failures=2)
     sleeps = []
 
-    jobs = fetch_jobs(session=session, delay=0, sleep=sleeps.append)
+    jobs, failed = fetch_jobs(session=session, delay=0, sleep=sleeps.append)
 
     assert sleeps[:2] == [1, 2]
+    assert failed == []
     assert len(jobs) == len(raw_jobs) * len(SOURCES)
     assert set(session.timeouts) == {TIMEOUT_S} == {10}
 
@@ -88,11 +95,32 @@ def test_fetch_jobs_skips_failing_source_and_continues(raw_jobs, caplog):
     session = FakeSession({"data": raw_jobs}, broken_path=SOURCES[0][0])
     sleeps = []
 
-    jobs = fetch_jobs(session=session, delay=0, sleep=sleeps.append)
+    jobs, failed = fetch_jobs(session=session, delay=0, sleep=sleeps.append)
 
     assert sleeps[:3] == list(RETRY_BACKOFF_S) == [1, 2, 4]
     assert len(jobs) == len(raw_jobs) * (len(SOURCES) - 1)
+    assert failed == [SOURCES[0][0]]
     assert "skipped after 4 attempts" in caplog.text
+
+
+def test_fetch_jobs_fails_at_once_on_4xx():
+    session = FakeSession(404)
+    sleeps = []
+
+    jobs, failed = fetch_jobs(session=session, delay=0, sleep=sleeps.append)
+
+    assert jobs == [] and len(failed) == len(SOURCES)
+    assert len(session.urls) == len(SOURCES)  # one attempt each
+    assert set(sleeps) == {0}
+
+
+@pytest.mark.parametrize("status", [429, 503])
+def test_fetch_jobs_retries_rate_limit_and_5xx(status):
+    session = FakeSession(status)
+
+    fetch_jobs(session=session, delay=0, sleep=lambda _: None)
+
+    assert len(session.urls) == len(SOURCES) * (len(RETRY_BACKOFF_S) + 1)
 
 
 def test_clean_jobs_extracts_fields(raw_jobs):
@@ -215,18 +243,24 @@ def test_fetch_jobs_warns_and_returns_empty_on_empty_or_malformed_payload(
 ):
     sleeps = []
 
-    jobs = fetch_jobs(session=FakeSession(payload), delay=0, sleep=sleeps.append)
+    jobs, failed = fetch_jobs(
+        session=FakeSession(payload), delay=0, sleep=sleeps.append
+    )
 
     assert jobs == []
     assert "empty or malformed JSON payload" in caplog.text
+    assert failed == []  # an empty answer is not a failed source
     assert set(sleeps) == {0}  # a well-formed HTTP answer is not retried
 
 
 def test_fetch_jobs_returns_empty_when_body_is_not_json(caplog):
-    jobs = fetch_jobs(session=FakeSession(NOT_JSON), delay=0, sleep=lambda _: None)
+    jobs, failed = fetch_jobs(
+        session=FakeSession(NOT_JSON), delay=0, sleep=lambda _: None
+    )
 
     assert jobs == []
     assert "skipped after 4 attempts" in caplog.text
+    assert len(failed) == len(SOURCES)
 
 
 def test_clean_jobs_uses_unknown_for_missing_fields_and_warns(raw_jobs, caplog):
@@ -274,7 +308,7 @@ def test_consolidate_without_snapshots_writes_empty_file(tmp_path):
 
 
 def test_main_writes_nothing_when_every_source_fails(tmp_path, monkeypatch):
-    monkeypatch.setattr(getonboard_scraper, "fetch_jobs", list)
+    monkeypatch.setattr(getonboard_scraper, "fetch_jobs", lambda: ([], []))
     monkeypatch.setattr(getonboard_scraper, "setup_logging", lambda verbose: None)
     monkeypatch.setattr(getonboard_scraper, "TRACKING_DIR", tmp_path)
     monkeypatch.setattr("sys.argv", ["getonboard_scraper"])
@@ -286,7 +320,7 @@ def test_main_writes_nothing_when_every_source_fails(tmp_path, monkeypatch):
 
 
 def test_main_writes_snapshot_and_consolidated(raw_jobs, tmp_path, monkeypatch):
-    monkeypatch.setattr(getonboard_scraper, "fetch_jobs", lambda: raw_jobs)
+    monkeypatch.setattr(getonboard_scraper, "fetch_jobs", lambda: (raw_jobs, []))
     monkeypatch.setattr(getonboard_scraper, "setup_logging", lambda verbose: None)
     monkeypatch.setattr(getonboard_scraper, "TRACKING_DIR", tmp_path)
     monkeypatch.setattr("sys.argv", ["getonboard_scraper"])
@@ -294,3 +328,83 @@ def test_main_writes_snapshot_and_consolidated(raw_jobs, tmp_path, monkeypatch):
     getonboard_scraper.main()
 
     assert len(list(tmp_path.glob("leads_*.csv"))) == 2
+
+
+def make_jobs(prefix, count):
+    return [
+        {
+            "id": f"{prefix}-{i}",
+            "attributes": {
+                "title": f"Data Engineer {prefix}{i}",
+                "description": "<p>Python</p>",
+                "seniority": {"data": {"id": 2}},
+                "company": {"data": {"attributes": {"name": "Acme"}}},
+            },
+            "links": {"public_url": f"https://x/{prefix}-{i}"},
+        }
+        for i in range(count)
+    ]
+
+
+class SourceSession:
+    """Answers each source path with its own jobs; a path left out is down."""
+
+    def __init__(self, jobs_by_path):
+        self.jobs_by_path = jobs_by_path
+
+    def get(self, url, params=None, timeout=None):
+        for path, jobs in self.jobs_by_path.items():
+            if path in url:
+                return FakeResponse({"data": jobs})
+        raise requests.ConnectionError("boom")
+
+
+@pytest.fixture
+def run_main(tmp_path, monkeypatch):
+    def run(jobs_by_path):
+        session = SourceSession(jobs_by_path)
+        monkeypatch.setattr(
+            getonboard_scraper,
+            "fetch_jobs",
+            lambda: fetch_jobs(session=session, delay=0, sleep=lambda _: None),
+        )
+        monkeypatch.setattr(getonboard_scraper, "setup_logging", lambda verbose: None)
+        monkeypatch.setattr(getonboard_scraper, "TRACKING_DIR", tmp_path)
+        monkeypatch.setattr("sys.argv", ["getonboard_scraper"])
+        getonboard_scraper.main()
+        (snapshot,) = tmp_path.glob("leads_????-??-??.csv")
+        return pd.read_csv(snapshot)
+
+    return run
+
+
+def test_main_keeps_both_healthy_sources_when_one_fails(run_main):
+    source_a, _, source_c = (path for path, _ in SOURCES)
+
+    snapshot = run_main({source_a: make_jobs("a", 10), source_c: make_jobs("c", 8)})
+
+    assert len(snapshot) == 18
+
+
+def test_main_partial_failure_merges_into_same_day_snapshot(run_main):
+    source_a, source_b, source_c = (path for path, _ in SOURCES)
+    healthy = {source_a: make_jobs("a", 10), source_c: make_jobs("c", 8)}
+    run_main({**healthy, source_b: make_jobs("b", 5)})
+
+    snapshot = run_main(healthy)  # source B is down on the second run
+
+    assert len(snapshot) == 23  # the 5 leads only B had found earlier survive
+    assert snapshot["link"].is_unique
+
+
+def test_main_full_success_replaces_same_day_snapshot(run_main):
+    source_a, source_b, source_c = (path for path, _ in SOURCES)
+    run_main(
+        {source_a: make_jobs("a", 10), source_b: make_jobs("b", 5), source_c: [{}]}
+    )
+
+    snapshot = run_main(
+        {source_a: make_jobs("a", 10), source_b: make_jobs("b", 2), source_c: [{}]}
+    )
+
+    assert len(snapshot) == 12
