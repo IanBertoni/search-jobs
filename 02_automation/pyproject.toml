@@ -3,4 +3,4 @@ pythonpath = ["."]
 testpaths = ["tests"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["scrapers", "matcher"]
+known-first-party = ["scrapers", "matcher", "config"]
