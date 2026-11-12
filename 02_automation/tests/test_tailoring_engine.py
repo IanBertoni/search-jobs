@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from tailoring_engine import tailor_all
+from tailoring_engine import STRICT_RULES, _validate_pitch, tailor_all
 
 LEAD = pd.DataFrame(
     {
@@ -20,7 +20,7 @@ LEAD = pd.DataFrame(
 )
 
 TAILORED = {
-    "pitch": "Línea 1\nLínea 2\nLínea 3",
+    "pitch": "Línea uno\nLínea dos\nLínea tres",
     "cv": "# Ian Bertoni\n\n## Proyectos\n- RAG pipeline",
     "preguntas": ["¿Airflow?", "¿SQL?", "¿Python?"],
     "cubiertos": ["Python", "SQL"],
@@ -48,7 +48,7 @@ def test_writes_one_markdown_with_the_three_blocks(tmp_path):
         "## PITCH",
         "## CV ADAPTADO",
         "## NOTAS",
-        "Línea 3",
+        "Línea tres",
         "RAG pipeline",
         "- ¿SQL?",
         "Cobertura: 2/3 requisitos. No cubiertos: Airflow",
@@ -87,4 +87,43 @@ def test_less_than_two_covered_requirements_writes_skip_without_pitch(tmp_path):
 
     text = out.read_text(encoding="utf-8")
     assert "SKIP: 1/3 requisitos cubiertos. No cubiertos: SQL, Airflow" in text
-    assert "## PITCH" not in text and "Línea 1" not in text
+    assert "## PITCH" not in text and "Línea uno" not in text
+
+
+CV = "Built a RAG pipeline. Implemented over 1,200 automated tests (pytest). PostgreSQL, Flask."
+
+
+def test_invented_years_are_retried_once_then_failed_validation(tmp_path, caplog):
+    reply = {**TAILORED, "pitch": "Tengo 5 años de Python.\nRAG.\nQA."}
+    session = groq_session(content=json.dumps(reply))
+
+    with caplog.at_level(logging.WARNING):
+        [out] = tailor_all(LEAD, CV, tmp_path, session)
+
+    assert session.post.call_count == 2
+    retry_prompt = session.post.call_args.kwargs["json"]["messages"][0]["content"]
+    assert STRICT_RULES in retry_prompt
+    text = out.read_text(encoding="utf-8")
+    assert "FAILED_VALIDATION" in text and "5 años" not in text
+    assert "## PITCH" not in text and "## CV ADAPTADO" in text and "## NOTAS" in text
+    assert any(
+        r.levelno == logging.WARNING and "años" in r.message for r in caplog.records
+    )
+
+
+def test_pitch_with_cv_figures_is_accepted():
+    assert _validate_pitch("Implementé más de 1200 tests con pytest.", CV) is None
+    assert _validate_pitch("Over 1,200 automated tests.", CV) is None
+
+
+@pytest.mark.parametrize(
+    "pitch",
+    [
+        "Gestioné PostgreSQL a gran escala.",
+        "APIs con Flask en producción.",
+        "Más de 3 proyectos con pytest.",
+        "Con más de cinco años de desarrollo Python.",
+    ],
+)
+def test_pitch_with_inflated_claims_is_rejected(pitch):
+    assert _validate_pitch(pitch, CV)

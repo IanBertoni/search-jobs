@@ -30,6 +30,7 @@ CV_HTML = Path(__file__).resolve().parents[1] / "cv-ian-no-photo.html"
 TAILORED_DIR = TRACKING_DIR / "tailored"
 TOP_SCORE = 6
 TIMEOUT_S = 120
+MAX_TOKENS = 16384  # gpt-oss reasons before answering; the default cut the JSON short
 MIN_COVERED = 2  # fewer covered requirements than this: no pitch, SKIP file
 logger = logging.getLogger(__name__)
 STYLE = re.compile(r"<style.*?</style>", re.IGNORECASE | re.DOTALL)
@@ -50,6 +51,37 @@ Respondé SOLO un objeto JSON con estas claves:
 - "cv": string, el CV en Markdown con los proyectos/experiencia reordenados
   según relevancia para la oferta (mismo contenido, sin agregar nada).
 - "preguntas": lista de 3 strings, preguntas probables de entrevista para esta oferta."""
+STRICT_RULES = (
+    "\nNo menciones años de experiencia. No menciones 'a gran escala' ni "
+    "'en producción' salvo que el CV lo diga literalmente."
+)
+
+# pitch guardrail: the model still inflates claims despite the prompt
+YEARS = re.compile(r"\b(años|years)\b", re.IGNORECASE)  # "5 años", "cinco años"
+NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
+AT_SCALE = re.compile(r"gran escala|at scale", re.IGNORECASE)
+IN_PRODUCTION = re.compile(r"producci[oó]n|production", re.IGNORECASE)
+NO_PROD_TECH = re.compile(r"postgres|flask", re.IGNORECASE)
+
+
+def _numbers(text: str) -> set[str]:
+    # "1,200" and "1.200" are the same figure
+    return {re.sub(r"[.,]", "", n) for n in NUMBER.findall(text)}
+
+
+def _validate_pitch(pitch: str, cv_text: str) -> str | None:
+    """Return why the pitch claims something the CV doesn't, or None if it's clean."""
+    if YEARS.search(pitch):
+        return "menciona años de experiencia"
+    invented = _numbers(pitch) - _numbers(cv_text)
+    if invented:
+        return f"cifras fuera del CV: {', '.join(sorted(invented))}"
+    if AT_SCALE.search(pitch):
+        return "dice 'a gran escala'"
+    for sentence in re.split(r"[.\n]", pitch):
+        if IN_PRODUCTION.search(sentence) and NO_PROD_TECH.search(sentence):
+            return f"'en producción' aplicado a PostgreSQL/Flask: {sentence.strip()}"
+    return None
 
 
 def slug(text: str) -> str:
@@ -57,7 +89,7 @@ def slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
 
 
-def ask_groq(lead, cv_text: str, session: requests.Session) -> dict:
+def ask_groq(lead, cv_text: str, session: requests.Session, extra: str = "") -> dict:
     offer = (
         f"Puesto: {lead.titulo}\nEmpresa: {lead.empresa}\nRequisitos: {lead.requisitos}"
     )
@@ -67,8 +99,9 @@ def ask_groq(lead, cv_text: str, session: requests.Session) -> dict:
         json={
             "model": GROQ_MODEL,
             "response_format": {"type": "json_object"},
+            "max_completion_tokens": MAX_TOKENS,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": SYSTEM_PROMPT + extra},
                 {"role": "user", "content": f"CV:\n{cv_text}\n\nOFERTA:\n{offer}"},
             ],
         },
@@ -79,7 +112,7 @@ def ask_groq(lead, cv_text: str, session: requests.Session) -> dict:
     return json.loads(response.json()["choices"][0]["message"]["content"])
 
 
-def render(lead, tailored: dict) -> str:
+def render(lead, tailored: dict, rejection: str | None = None) -> str:
     covered, missing = tailored["cubiertos"], tailored["no_cubiertos"]
     ratio = f"{len(covered)}/{len(covered) + len(missing)} requisitos"
     not_covered = f"No cubiertos: {', '.join(missing) or '-'}"
@@ -87,12 +120,32 @@ def render(lead, tailored: dict) -> str:
     # decided here, not trusted to the model: it may still return a pitch
     if len(covered) < MIN_COVERED:
         return f"{header}SKIP: {ratio} cubiertos. {not_covered}\n"
+    pitch = (
+        f"FAILED_VALIDATION: {rejection}\n\n"
+        if rejection
+        else f"## PITCH\n\n{tailored['pitch']}\n\n"
+    )
     questions = "\n".join(f"- {q}" for q in tailored["preguntas"])
     return (
-        f"{header}## PITCH\n\n{tailored['pitch']}\n\n"
+        f"{header}{pitch}"
         f"## CV ADAPTADO\n\n{tailored['cv']}\n\n"
         f"## NOTAS\n\n{questions}\n\nCobertura: {ratio}. {not_covered}\n"
     )
+
+
+def tailor(lead, cv_text: str, session: requests.Session) -> str:
+    """Ask Groq; an invented pitch gets one stricter retry, then FAILED_VALIDATION."""
+    tailored = ask_groq(lead, cv_text, session)
+    if len(tailored["cubiertos"]) < MIN_COVERED:
+        return render(lead, tailored)
+    rejection = _validate_pitch(tailored["pitch"], cv_text)
+    if rejection:
+        logger.warning("%s | pitch rechazado, regenero: %s", lead.empresa, rejection)
+        tailored = ask_groq(lead, cv_text, session, STRICT_RULES)
+        rejection = _validate_pitch(tailored["pitch"], cv_text)
+        if rejection:
+            logger.warning("%s | FAILED_VALIDATION: %s", lead.empresa, rejection)
+    return render(lead, tailored, rejection)
 
 
 def tailor_all(
@@ -103,7 +156,7 @@ def tailor_all(
     written = []
     for lead in leads.itertuples():
         try:
-            text = render(lead, ask_groq(lead, cv_text, session))
+            text = tailor(lead, cv_text, session)
         # ValueError covers malformed JSON; Key/TypeError a reply missing the keys
         except (requests.RequestException, ValueError, KeyError, TypeError) as error:
             logger.error("%s | %s: %s", lead.empresa, lead.titulo, error)
