@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import requests
 
-from scrapers import getonboard_scraper
+from scrapers import getonboard_scraper, remotive_scraper
 from scrapers.getonboard_scraper import (
     LEAD_COLUMNS,
     RETRY_BACKOFF_S,
@@ -28,6 +28,12 @@ NOW = datetime(2026, 11, 12, tzinfo=UTC)
 @pytest.fixture
 def raw_jobs():
     return json.loads(FIXTURE.read_text(encoding="utf-8"))["data"]
+
+
+@pytest.fixture(autouse=True)
+def remotive_offline(monkeypatch):
+    # main() also reads Remotive; keep these tests off the network with 0 jobs
+    monkeypatch.setattr(remotive_scraper, "fetch_remotive", lambda: clean_jobs([]))
 
 
 NOT_JSON = object()
@@ -165,8 +171,8 @@ def test_build_leads_roundtrips_csv(raw_jobs, tmp_path):
 
 
 def write_snapshot(folder, day, rows):
-    # legacy layout: snapshots written before the manual_review column existed
-    pd.DataFrame(rows, columns=LEAD_COLUMNS[:-1]).to_csv(
+    # legacy layout: snapshots written before manual_review and vertical existed
+    pd.DataFrame(rows, columns=LEAD_COLUMNS[:-2]).to_csv(
         folder / f"leads_{day}.csv", index=False
     )
 
@@ -198,6 +204,7 @@ def test_consolidate_dedupes_by_link_keeping_latest(tmp_path):
     assert sorted(merged["link"]) == ["https://x/1", "https://x/2"]
     assert merged.set_index("link").loc["https://x/1", "titulo"] == "New"
     assert (merged["manual_review"] == "PENDING").all()  # added to legacy snapshots
+    assert (merged["vertical"] == "data_ai").all()  # classified from the title
 
 
 def test_consolidate_ignores_its_own_output(tmp_path):
@@ -379,7 +386,7 @@ def run_main(tmp_path, monkeypatch):
 
 
 def test_main_keeps_both_healthy_sources_when_one_fails(run_main):
-    source_a, _, source_c = (path for path, _ in SOURCES)
+    source_a, _, source_c, *_ = (path for path, _ in SOURCES)
 
     snapshot = run_main({source_a: make_jobs("a", 10), source_c: make_jobs("c", 8)})
 
@@ -387,7 +394,7 @@ def test_main_keeps_both_healthy_sources_when_one_fails(run_main):
 
 
 def test_main_partial_failure_merges_into_same_day_snapshot(run_main):
-    source_a, source_b, source_c = (path for path, _ in SOURCES)
+    source_a, source_b, source_c, *_ = (path for path, _ in SOURCES)
     healthy = {source_a: make_jobs("a", 10), source_c: make_jobs("c", 8)}
     run_main({**healthy, source_b: make_jobs("b", 5)})
 
@@ -398,13 +405,24 @@ def test_main_partial_failure_merges_into_same_day_snapshot(run_main):
 
 
 def test_main_full_success_replaces_same_day_snapshot(run_main):
-    source_a, source_b, source_c = (path for path, _ in SOURCES)
+    source_a, source_b, source_c, *_ = (path for path, _ in SOURCES)
+    healthy_rest = {path: [] for path, _ in SOURCES}  # answer, with 0 jobs
     run_main(
-        {source_a: make_jobs("a", 10), source_b: make_jobs("b", 5), source_c: [{}]}
+        {
+            **healthy_rest,
+            source_a: make_jobs("a", 10),
+            source_b: make_jobs("b", 5),
+            source_c: [{}],
+        }
     )
 
     snapshot = run_main(
-        {source_a: make_jobs("a", 10), source_b: make_jobs("b", 2), source_c: [{}]}
+        {
+            **healthy_rest,
+            source_a: make_jobs("a", 10),
+            source_b: make_jobs("b", 2),
+            source_c: [{}],
+        }
     )
 
     assert len(snapshot) == 12

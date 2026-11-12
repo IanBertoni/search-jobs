@@ -2,13 +2,12 @@ import pandas as pd
 import pytest
 
 from apply_today import (
-    _whole_words,
     load_leads,
     matches_profile,
     render_markdown,
     select_top,
 )
-from scrapers.getonboard_scraper import CONSOLIDATED_CSV, CSV_ENCODING
+from scrapers.getonboard_scraper import CONSOLIDATED_CSV, CSV_ENCODING, whole_words
 
 LEADS = pd.DataFrame(
     {
@@ -19,6 +18,7 @@ LEADS = pd.DataFrame(
         "requisitos": ["Python | SQL", "Excel", "PyTorch", "Cypress | Selenium"],
         "fecha_scrapeo": ["2026-11-12"] * 4,
         "manual_review": ["PENDING"] * 4,
+        "vertical": ["data_ai"] * 4,
     }
 )
 
@@ -44,6 +44,7 @@ def test_render_markdown_lists_each_offer():
     assert "- Python\n- SQL" in md
     assert "Ghost Analyst" not in md
     assert "- Revisión manual: PENDING (careers page" in md
+    assert "- Vertical: data_ai" in md
 
 
 def test_select_top_drops_offers_outside_data_ai_profile():
@@ -62,9 +63,17 @@ def test_select_top_drops_offers_outside_data_ai_profile():
         ("Docente Big Data", False),
         ("Especialista en Soporte IA", False),
         ("Data Support Engineer", False),
+        ("AI Coding Evaluator", True),
+        ("Python Developer - AI Trainer", True),
+        ("Analista de Evaluación de Modelos", True),
+        ("Video Annotation Specialist", True),
+        ("Quality Analyst", True),
+        ("Prompt Specialist", True),
+        ("Sales Trainer", False),
+        ("Trainee Account Executive", False),
     ],
 )
-def test_matches_profile_on_title_whole_words(titulo, matches):
+def test_matches_profile_on_titlewhole_words(titulo, matches):
     # requisitos mention Python/data even in QA and Full-Stack posts, so only title counts
     lead = pd.DataFrame({"titulo": [titulo], "requisitos": ["Python | bases de datos"]})
 
@@ -72,8 +81,8 @@ def test_matches_profile_on_title_whole_words(titulo, matches):
 
 
 def test_whole_words_escapes_keywords_and_empty_list_matches_nothing():
-    assert _whole_words(["node.js"]).search("nodexjs") is None
-    assert _whole_words([]).search("Data Engineer") is None
+    assert whole_words(["node.js"]).search("nodexjs") is None
+    assert whole_words([]).search("Data Engineer") is None
 
 
 @pytest.mark.parametrize(

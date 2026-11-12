@@ -1,4 +1,4 @@
-"""Get on Board public API -> 03_tracking/leads_YYYY-MM-DD.csv + leads_consolidated.csv.
+"""Get on Board API + Remotive RSS -> 03_tracking/leads_YYYY-MM-DD.csv + leads_consolidated.csv.
 
 Usage (from 02_automation/): python -m scrapers.getonboard_scraper [--verbose]
 """
@@ -8,7 +8,7 @@ import html
 import logging
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -16,13 +16,23 @@ from typing import Any
 import pandas as pd
 import requests
 
-from config import API_URL, REQUEST_DELAY_S, TRACKING_DIR, setup_logging
+from config import (
+    AI_TRAINING_KEYWORDS,
+    API_URL,
+    REQUEST_DELAY_S,
+    TRACKING_DIR,
+    setup_logging,
+)
 from matcher.jd_decoder import MANUAL_REVIEW_PENDING, extract_requirements, score_jd
 
 SOURCES = [
     ("categories/data-science-analytics/jobs", {}),
     ("categories/machine-learning-ai/jobs", {}),
     ("search/jobs", {"query": "python"}),
+    # AI training / evaluation vertical; the title filter drops the full-text noise
+    ("search/jobs", {"query": "evaluator"}),
+    ("search/jobs", {"query": "trainer"}),
+    ("companies/toloka-ai/jobs", {}),  # Mindrift
 ]
 PER_PAGE = 100
 TIMEOUT_S = 10
@@ -49,6 +59,7 @@ LEAD_COLUMNS = [
     "requisitos",
     "fecha_scrapeo",
     "manual_review",
+    "vertical",
 ]
 SNAPSHOT_GLOB = "leads_????-??-??.csv"  # dated files only, never leads_consolidated.csv
 CONSOLIDATED_CSV = "leads_consolidated.csv"
@@ -58,6 +69,23 @@ BLOCK_END = re.compile(r"</(li|p|div|h\d)>|<br\s*/?>", re.IGNORECASE)
 TAG = re.compile(r"<[^>]+>")
 
 logger = logging.getLogger(__name__)
+
+
+def whole_words(words: Iterable[str]) -> re.Pattern[str]:
+    # whole words so "ai" doesn't hit "maintain"; an empty list matches nothing
+    alternatives = "|".join(map(re.escape, words))
+    pattern = rf"\b(?:{alternatives})\b" if alternatives else r"(?!)"
+    return re.compile(pattern, re.IGNORECASE)
+
+
+AI_TRAINING_TITLE = whole_words(AI_TRAINING_KEYWORDS)
+
+
+def vertical_of(titles: pd.Series) -> pd.Series:
+    """Label each title "ai_training" (evaluator, trainer...) or "data_ai"."""
+    is_training = titles.str.contains(AI_TRAINING_TITLE).astype(bool)
+    return is_training.map({True: "ai_training", False: "data_ai"})
+
 
 TARGET_SENIORITY_IDS = {
     1,
@@ -207,6 +235,7 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     """Keep junior to semi-senior jobs.
 
     API seniority is a hard filter; keywords only decide when it's missing.
+    AI training roles without seniority are kept: they ask for skills, not years.
 
     Args:
         jobs: Output of ``clean_jobs``.
@@ -215,8 +244,24 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
         The rows of ``jobs`` at a target seniority level.
     """
     by_keyword = (jobs["titulo"] + " " + jobs["descripcion"]).str.contains(TARGET_LEVEL)
+    by_keyword |= vertical_of(jobs["titulo"]) == "ai_training"
     by_api = jobs["seniority_id"].isin(TARGET_SENIORITY_IDS)
     return jobs[by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)]
+
+
+def dedupe_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
+    """Drop a posting seen twice (same link, or same title and company).
+
+    Args:
+        jobs: ``clean_jobs``-shaped rows from every source, preferred first.
+
+    Returns:
+        The first row of each posting.
+    """
+    jobs = jobs.drop_duplicates("link")
+    title = jobs["titulo"].str.casefold().str.strip()
+    company = jobs["empresa"].str.casefold().str.strip()
+    return jobs[~(title + "|" + company).duplicated()]
 
 
 def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
@@ -237,6 +282,7 @@ def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
             ),
             fecha_scrapeo=now.date().isoformat(),
             manual_review=MANUAL_REVIEW_PENDING,
+            vertical=vertical_of(jobs["titulo"]),
         )
         .sort_values("score_jd", ascending=False, kind="stable")
         .loc[:, LEAD_COLUMNS]
@@ -285,7 +331,8 @@ def read_leads(path: Path) -> pd.DataFrame:
 
     Returns:
         The leads, with score_jd as a number. Files written before the
-        manual_review column existed get it as "PENDING".
+        manual_review column existed get it as "PENDING", and those before
+        the vertical column get it from the title.
 
     Raises:
         OSError: If the file is missing or can't be opened.
@@ -293,11 +340,13 @@ def read_leads(path: Path) -> pd.DataFrame:
             ``LEAD_COLUMNS`` or has non-numeric scores.
     """
     leads = pd.read_csv(path, encoding=CSV_ENCODING)
-    missing = set(LEAD_COLUMNS) - {"manual_review"} - set(leads.columns)
+    missing = set(LEAD_COLUMNS) - {"manual_review", "vertical"} - set(leads.columns)
     if missing:
         raise ValueError(f"{path.name}: missing columns {sorted(missing)}")
     if "manual_review" not in leads:
         leads["manual_review"] = MANUAL_REVIEW_PENDING
+    if "vertical" not in leads:
+        leads["vertical"] = vertical_of(leads["titulo"].astype(str))
     return leads.assign(score_jd=pd.to_numeric(leads["score_jd"]))
 
 
@@ -357,14 +406,23 @@ def main() -> None:
     Raises:
         SystemExit: If no source returned jobs; nothing is written then.
     """
+    # local import: remotive_scraper reuses this module's helpers
+    from scrapers import remotive_scraper
+
     setup_logging(parse_args(__doc__).verbose)
     now = datetime.now(UTC)
     raw_jobs, failed_sources = fetch_jobs()
-    if not raw_jobs:
+    remotive = remotive_scraper.fetch_remotive()
+    if remotive is None:
+        failed_sources.append("remotive")
+    found = [df for df in (clean_jobs(raw_jobs), remotive) if df is not None]
+    found = [df for df in found if not df.empty]
+    if not found:
         # an empty snapshot would overwrite today's good one
         logger.error("no jobs fetched from any source; leads files left untouched")
         raise SystemExit(1)
-    jobs = keep_target_levels(clean_jobs(raw_jobs))
+    # Get on Board first: on a cross-source duplicate its richer posting wins
+    jobs = keep_target_levels(dedupe_jobs(pd.concat(found, ignore_index=True)))
     snapshot = save_snapshot(
         build_leads(jobs, now), TRACKING_DIR, now, keep_existing=bool(failed_sources)
     )
