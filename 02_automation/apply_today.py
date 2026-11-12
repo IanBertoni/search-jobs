@@ -5,9 +5,7 @@ Usage (from 02_automation/): python apply_today.py [--verbose]
 """
 
 import logging
-import re
 import sys
-from collections.abc import Iterable
 from pathlib import Path
 
 import pandas as pd
@@ -20,10 +18,12 @@ from config import (
     setup_logging,
 )
 from scrapers.getonboard_scraper import (
+    AI_TRAINING_TITLE,
     CONSOLIDATED_CSV,
     consolidate,
     parse_args,
     read_leads,
+    whole_words,
 )
 
 TO_APPLY_MD = TRACKING_DIR / "to_apply.md"
@@ -33,21 +33,16 @@ MANUAL_CHECKS = "careers page, layoffs, actividad del recruiter"
 logger = logging.getLogger(__name__)
 
 
-def _whole_words(words: Iterable[str]) -> re.Pattern[str]:
-    # whole words so "ai" doesn't hit "maintain"; an empty list matches nothing
-    alternatives = "|".join(map(re.escape, words))
-    pattern = rf"\b(?:{alternatives})\b" if alternatives else r"(?!)"
-    return re.compile(pattern, re.IGNORECASE)
-
-
-PROFILE = _whole_words(PROFILE_KEYWORDS)
-BLACKLIST = _whole_words(BLACKLIST_KEYWORDS)
+PROFILE = whole_words(PROFILE_KEYWORDS)
+BLACKLIST = whole_words(BLACKLIST_KEYWORDS)
 
 
 def matches_profile(leads: pd.DataFrame) -> pd.Series:
     # title only: QA/Full-Stack requisitos also list Python or "bases de datos"
+    # either vertical: Data & AI or AI training / evaluation
     titles = leads["titulo"]
-    return titles.str.contains(PROFILE) & ~titles.str.contains(BLACKLIST)
+    wanted = titles.str.contains(PROFILE) | titles.str.contains(AI_TRAINING_TITLE)
+    return wanted & ~titles.str.contains(BLACKLIST)
 
 
 def select_top(leads: pd.DataFrame, min_score: int = MIN_SCORE) -> pd.DataFrame:
@@ -61,7 +56,8 @@ def render_markdown(top: pd.DataFrame) -> str:
         reqs = "\n".join(f"- {r}" for r in str(lead.requisitos).split(" | "))
         sections.append(
             f"## {lead.titulo} — {lead.empresa}\n\n"
-            f"- Score JD: {lead.score_jd}/6\n- Link: {lead.link}\n"
+            f"- Score JD: {lead.score_jd}/6\n- Vertical: {lead.vertical}\n"
+            f"- Link: {lead.link}\n"
             f"- Revisión manual: {lead.manual_review} ({MANUAL_CHECKS})\n\n"
             f"**Requisitos clave:**\n\n{reqs}\n"
         )

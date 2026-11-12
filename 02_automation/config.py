@@ -39,6 +39,13 @@ PROFILE_KEYWORDS = _env(
 BLACKLIST_KEYWORDS = _env(
     "BLACKLIST_KEYWORDS", "sales,docente,soporte,support", _keywords
 )
+# second vertical: AI training / evaluation roles (Anyone AI, Mindrift...)
+AI_TRAINING_KEYWORDS = _env(
+    "AI_TRAINING_KEYWORDS",
+    "evaluator,evaluación,trainer,training,annotation,quality analyst"
+    ",prompt specialist,ai trainer,coding evaluator,agent evaluator",
+    _keywords,
+)
 
 GROQ_API_KEY = _env("GROQ_API_KEY", "")
 GROQ_MODEL = _env("GROQ_MODEL", "openai/gpt-oss-120b")
