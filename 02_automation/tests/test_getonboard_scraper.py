@@ -12,6 +12,7 @@ from scrapers.getonboard_scraper import (
     clean_jobs,
     consolidate,
     fetch_jobs,
+    keep_target_levels,
     save_snapshot,
 )
 
@@ -137,3 +138,29 @@ def test_consolidate_ignores_its_own_output(tmp_path):
     merged = pd.read_csv(consolidate(tmp_path))
 
     assert len(merged) == 1
+
+
+def test_keep_target_levels_uses_api_seniority_as_hard_filter(raw_jobs):
+    kept = keep_target_levels(clean_jobs(raw_jobs))
+
+    assert "Lead Data Scientist" not in set(kept["titulo"])
+    assert len(kept) == 2
+
+
+@pytest.mark.parametrize(
+    ("titulo", "descripcion", "kept"),
+    [
+        ("Data Engineer Jr", "", True),
+        ("Practicante Data Science", "", True),
+        ("Data Engineer", "Buscamos perfil semi-senior", True),
+        ("Data Engineer", "Ideal sin experiencia previa", True),
+        ("Data Engineer", "5+ years required", False),
+        ("Majority analyst", "", False),
+    ],
+)
+def test_keep_target_levels_falls_back_to_keywords(titulo, descripcion, kept):
+    jobs = pd.DataFrame(
+        {"titulo": [titulo], "descripcion": [descripcion], "seniority_id": [None]}
+    )
+
+    assert len(keep_target_levels(jobs)) == int(kept)
