@@ -84,9 +84,9 @@ def _fetch_source(
     path: str,
     params: dict[str, str],
     sleep: Callable[[float], None],
-) -> list[dict]:
-    # a source that keeps failing returns [] so the other sources still run
-    for wait in (*RETRY_BACKOFF_S, None):
+) -> list[dict] | None:
+    # a source that keeps failing returns None so the other sources still run
+    for attempt, wait in enumerate((*RETRY_BACKOFF_S, None), start=1):
         try:
             response = session.get(
                 f"{API_URL}/{path}",
@@ -98,28 +98,26 @@ def _fetch_source(
             return _jobs_in(response.json(), path)
         except requests.RequestException as error:
             last_error = error
-            if wait is not None:
-                logger.warning("%s: %s; retrying in %ss", path, error, wait)
-                sleep(wait)
-    logger.error(
-        "%s: skipped after %d attempts: %s",
-        path,
-        len(RETRY_BACKOFF_S) + 1,
-        last_error,
-    )
-    return []
+            status = getattr(error.response, "status_code", None)
+            # a 4xx won't fix itself on retry, except 429 (rate limit)
+            if wait is None or (status in range(400, 500) and status != 429):
+                break
+            logger.warning("%s: %s; retrying in %ss", path, error, wait)
+            sleep(wait)
+    logger.error("%s: skipped after %d attempts: %s", path, attempt, last_error)
+    return None
 
 
 def fetch_jobs(
     session: requests.Session | None = None,
     delay: float = REQUEST_DELAY_S,
     sleep: Callable[[float], None] = time.sleep,
-) -> list[dict]:
+) -> tuple[list[dict], list[str]]:
     """Download the newest jobs of every source in ``SOURCES``.
 
     Each request has a 10 s timeout and is retried with exponential backoff
-    (1 s, 2 s, 4 s). A source that still fails, or answers with empty or
-    malformed JSON, is logged and skipped.
+    (1 s, 2 s, 4 s); a 4xx other than 429 fails at once. A source that still
+    fails, or answers with empty or malformed JSON, is logged and skipped.
 
     Args:
         session: HTTP session to use. Defaults to a new ``requests.Session``.
@@ -127,16 +125,20 @@ def fetch_jobs(
         sleep: Function used to wait; tests inject a fake one.
 
     Returns:
-        Raw job dicts from the API, possibly repeated across sources. Empty
-        if every source failed.
+        Raw job dicts from the API, possibly repeated across sources (empty
+        if every source failed), and the paths of the sources that failed.
     """
     # shortcut: first page only (newest 100 per source); add pagination if that misses leads
     session = session or requests.Session()
-    jobs = []
+    jobs, failed = [], []
     for path, params in SOURCES:
-        jobs.extend(_fetch_source(session, path, params, sleep))
+        source_jobs = _fetch_source(session, path, params, sleep)
+        if source_jobs is None:
+            failed.append(path)
+        else:
+            jobs.extend(source_jobs)
         sleep(delay)
-    return jobs
+    return jobs, failed
 
 
 def html_to_text(raw: str | None) -> str:
@@ -241,13 +243,18 @@ def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
     )
 
 
-def save_snapshot(leads: pd.DataFrame, folder: Path, now: datetime) -> Path:
+def save_snapshot(
+    leads: pd.DataFrame, folder: Path, now: datetime, keep_existing: bool = False
+) -> Path:
     """Write the leads to ``leads_YYYY-MM-DD.csv``, replacing a same-day file.
 
     Args:
         leads: Output of ``build_leads``.
         folder: Destination folder; created if missing.
         now: Scrape time; its date names the file.
+        keep_existing: Merge into the same-day file instead of replacing it (a
+            link in both keeps the new row). For runs where a source failed,
+            so the leads only that source found earlier in the day survive.
 
     Returns:
         Path of the written snapshot.
@@ -257,6 +264,15 @@ def save_snapshot(leads: pd.DataFrame, folder: Path, now: datetime) -> Path:
     """
     path = folder / f"leads_{now.date().isoformat()}.csv"
     folder.mkdir(parents=True, exist_ok=True)
+    if keep_existing and path.exists():
+        try:
+            leads = (
+                pd.concat([read_leads(path), leads])
+                .drop_duplicates("link", keep="last")
+                .sort_values("score_jd", ascending=False, kind="stable")
+            )
+        except ValueError as error:
+            logger.error("replacing corrupt snapshot %s: %s", path.name, error)
     leads.to_csv(path, index=False, encoding=CSV_ENCODING)
     return path
 
@@ -343,13 +359,15 @@ def main() -> None:
     """
     setup_logging(parse_args(__doc__).verbose)
     now = datetime.now(UTC)
-    raw_jobs = fetch_jobs()
+    raw_jobs, failed_sources = fetch_jobs()
     if not raw_jobs:
         # an empty snapshot would overwrite today's good one
         logger.error("no jobs fetched from any source; leads files left untouched")
         raise SystemExit(1)
     jobs = keep_target_levels(clean_jobs(raw_jobs))
-    snapshot = save_snapshot(build_leads(jobs, now), TRACKING_DIR, now)
+    snapshot = save_snapshot(
+        build_leads(jobs, now), TRACKING_DIR, now, keep_existing=bool(failed_sources)
+    )
     logger.info("%d leads -> %s", len(jobs), snapshot)
     logger.info("consolidated -> %s", consolidate(TRACKING_DIR))
 
