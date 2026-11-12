@@ -32,6 +32,17 @@ CSV_ENCODING = "utf-8-sig"  # BOM so Excel shows accents
 BLOCK_END = re.compile(r"</(li|p|div|h\d)>|<br\s*/?>", re.IGNORECASE)
 TAG = re.compile(r"<[^>]+>")
 
+TARGET_SENIORITY_IDS = {
+    1,
+    2,
+    3,
+}  # /api/v0/seniorities: Sin experiencia, Junior, Semi Senior
+TARGET_LEVEL = re.compile(
+    r"\b(?:junior|trainee|entry[- ]level|ssr|semi[- ]?senior|jr|aprendiz"
+    r"|practicante|sin experiencia)\b",
+    re.IGNORECASE,
+)
+
 
 def fetch_jobs(session=requests, delay: float = REQUEST_DELAY_S) -> list[dict]:
     # shortcut: first page only (newest 100 per source); add pagination if that misses leads
@@ -64,8 +75,16 @@ def clean_jobs(raw_jobs: list[dict]) -> pd.DataFrame:
             "fecha": pd.to_datetime(df["attributes.published_at"], unit="s", utc=True),
             "min_salary": df["attributes.min_salary"],
             "max_salary": df["attributes.max_salary"],
+            "seniority_id": df.get("attributes.seniority.data.id"),
         }
     ).reset_index(drop=True)
+
+
+def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
+    """API seniority is a hard filter; keywords only decide when it's missing."""
+    by_keyword = (jobs["titulo"] + " " + jobs["descripcion"]).str.contains(TARGET_LEVEL)
+    by_api = jobs["seniority_id"].isin(TARGET_SENIORITY_IDS)
+    return jobs[by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)]
 
 
 def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
@@ -104,9 +123,8 @@ def consolidate(folder: Path) -> Path:
 
 def main() -> None:
     now = datetime.now(UTC)
-    snapshot = save_snapshot(
-        build_leads(clean_jobs(fetch_jobs()), now), TRACKING_DIR, now
-    )
+    jobs = keep_target_levels(clean_jobs(fetch_jobs()))
+    snapshot = save_snapshot(build_leads(jobs, now), TRACKING_DIR, now)
     print(f"snapshot -> {snapshot}\nconsolidated -> {consolidate(TRACKING_DIR)}")
 
 
