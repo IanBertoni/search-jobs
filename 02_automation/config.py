@@ -40,6 +40,10 @@ BLACKLIST_KEYWORDS = _env(
     "BLACKLIST_KEYWORDS", "sales,docente,soporte,support", _keywords
 )
 
+GROQ_API_KEY = _env("GROQ_API_KEY", "")
+GROQ_MODEL = _env("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_BASE_URL = _env("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+
 TRACKING_DIR = Path(__file__).resolve().parents[1] / "03_tracking"
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 
