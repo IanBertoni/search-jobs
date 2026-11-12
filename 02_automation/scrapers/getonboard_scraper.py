@@ -24,7 +24,10 @@ PER_PAGE = 100
 REQUEST_DELAY_S = 1.0
 TIMEOUT_S = 30
 LEAD_COLUMNS = ["titulo", "empresa", "link", "score_jd", "requisitos", "fecha_scrapeo"]
-LEADS_CSV = Path(__file__).resolve().parents[2] / "03_tracking" / "leads.csv"
+TRACKING_DIR = Path(__file__).resolve().parents[2] / "03_tracking"
+SNAPSHOT_GLOB = "leads_????-??-??.csv"  # dated files only, never leads_consolidated.csv
+CONSOLIDATED_CSV = "leads_consolidated.csv"
+CSV_ENCODING = "utf-8-sig"  # BOM so Excel shows accents
 
 BLOCK_END = re.compile(r"</(li|p|div|h\d)>|<br\s*/?>", re.IGNORECASE)
 TAG = re.compile(r"<[^>]+>")
@@ -79,13 +82,32 @@ def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
     )
 
 
+def save_snapshot(leads: pd.DataFrame, folder: Path, now: datetime) -> Path:
+    path = folder / f"leads_{now.date().isoformat()}.csv"
+    folder.mkdir(parents=True, exist_ok=True)
+    leads.to_csv(path, index=False, encoding=CSV_ENCODING)
+    return path
+
+
+def consolidate(folder: Path) -> Path:
+    """Merge every dated snapshot; a link seen twice keeps its latest scrape."""
+    snapshots = sorted(folder.glob(SNAPSHOT_GLOB))  # ISO dates sort chronologically
+    merged = (
+        pd.concat([pd.read_csv(p, encoding=CSV_ENCODING) for p in snapshots])
+        .drop_duplicates("link", keep="last")
+        .sort_values("score_jd", ascending=False, kind="stable")
+    )
+    path = folder / CONSOLIDATED_CSV
+    merged.to_csv(path, index=False, encoding=CSV_ENCODING)
+    return path
+
+
 def main() -> None:
-    leads = build_leads(clean_jobs(fetch_jobs()), datetime.now(UTC))
-    LEADS_CSV.parent.mkdir(parents=True, exist_ok=True)
-    leads.to_csv(
-        LEADS_CSV, index=False, encoding="utf-8-sig"
-    )  # BOM so Excel shows accents
-    print(f"{len(leads)} leads -> {LEADS_CSV}")
+    now = datetime.now(UTC)
+    snapshot = save_snapshot(
+        build_leads(clean_jobs(fetch_jobs()), now), TRACKING_DIR, now
+    )
+    print(f"snapshot -> {snapshot}\nconsolidated -> {consolidate(TRACKING_DIR)}")
 
 
 if __name__ == "__main__":

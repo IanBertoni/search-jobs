@@ -10,7 +10,9 @@ from scrapers.getonboard_scraper import (
     SOURCES,
     build_leads,
     clean_jobs,
+    consolidate,
     fetch_jobs,
+    save_snapshot,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "getonboard_jobs.json"
@@ -90,3 +92,48 @@ def test_build_leads_roundtrips_csv(raw_jobs, tmp_path):
     build_leads(clean_jobs(raw_jobs), NOW).to_csv(out, index=False)
 
     assert list(pd.read_csv(out).columns) == LEAD_COLUMNS
+
+
+def write_snapshot(folder, day, rows):
+    pd.DataFrame(rows, columns=LEAD_COLUMNS).to_csv(
+        folder / f"leads_{day}.csv", index=False
+    )
+
+
+def test_save_snapshot_writes_dated_file(raw_jobs, tmp_path):
+    leads = build_leads(clean_jobs(raw_jobs), NOW)
+
+    path = save_snapshot(leads, tmp_path, NOW)
+
+    assert path == tmp_path / "leads_2026-11-12.csv"
+    assert len(pd.read_csv(path)) == 3
+
+
+def test_consolidate_dedupes_by_link_keeping_latest(tmp_path):
+    write_snapshot(
+        tmp_path, "2026-11-10", [["Old", "A", "https://x/1", 4, "SQL", "2026-11-10"]]
+    )
+    write_snapshot(
+        tmp_path,
+        "2026-11-12",
+        [
+            ["New", "A", "https://x/1", 5, "SQL", "2026-11-12"],
+            ["Other", "B", "https://x/2", 6, "Python", "2026-11-12"],
+        ],
+    )
+
+    merged = pd.read_csv(consolidate(tmp_path))
+
+    assert sorted(merged["link"]) == ["https://x/1", "https://x/2"]
+    assert merged.set_index("link").loc["https://x/1", "titulo"] == "New"
+
+
+def test_consolidate_ignores_its_own_output(tmp_path):
+    write_snapshot(
+        tmp_path, "2026-11-12", [["T", "A", "https://x/1", 5, "SQL", "2026-11-12"]]
+    )
+
+    consolidate(tmp_path)
+    merged = pd.read_csv(consolidate(tmp_path))
+
+    assert len(merged) == 1
