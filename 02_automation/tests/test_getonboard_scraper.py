@@ -233,6 +233,10 @@ def test_keep_target_levels_uses_api_seniority_as_hard_filter(raw_jobs):
         ("Data Engineer", "Buscamos perfil semi-senior", True),
         ("Data Engineer", "Ideal sin experiencia previa", True),
         ("Data Engineer", "5+ years required", False),
+        # no seniority and no level keyword: the stack decides
+        ("Data Engineer", "Stack: FastAPI y PostgreSQL", True),
+        ("Backend Engineer", "We build LLM apps with RAG", True),
+        ("Backend Engineer", "Java and Spring Boot", False),
         ("Majority analyst", "", False),
     ],
 )

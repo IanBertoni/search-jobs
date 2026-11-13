@@ -20,6 +20,7 @@ from config import (
     AI_TRAINING_KEYWORDS,
     API_URL,
     REQUEST_DELAY_S,
+    STACK_KEYWORDS,
     TRACKING_DIR,
     setup_logging,
 )
@@ -79,6 +80,7 @@ def whole_words(words: Iterable[str]) -> re.Pattern[str]:
 
 
 AI_TRAINING_TITLE = whole_words(AI_TRAINING_KEYWORDS)
+STACK = whole_words(STACK_KEYWORDS)
 
 
 def vertical_of(titles: pd.Series) -> pd.Series:
@@ -235,7 +237,9 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     """Keep junior to semi-senior jobs.
 
     API seniority is a hard filter; keywords only decide when it's missing.
-    AI training roles without seniority are kept: they ask for skills, not years.
+    Without seniority, a posting that names the target stack (Python, LLM...)
+    is kept too: many entry-level roles aren't labelled "Junior". So are AI
+    training roles: they ask for skills, not years.
 
     Args:
         jobs: Output of ``clean_jobs``.
@@ -243,7 +247,8 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     Returns:
         The rows of ``jobs`` at a target seniority level.
     """
-    by_keyword = (jobs["titulo"] + " " + jobs["descripcion"]).str.contains(TARGET_LEVEL)
+    text = jobs["titulo"] + " " + jobs["descripcion"]
+    by_keyword = text.str.contains(TARGET_LEVEL) | text.str.contains(STACK)
     by_keyword |= vertical_of(jobs["titulo"]) == "ai_training"
     by_api = jobs["seniority_id"].isin(TARGET_SENIORITY_IDS)
     return jobs[by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)]

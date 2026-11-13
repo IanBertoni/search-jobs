@@ -2,7 +2,8 @@
 
 Read-only: applying stays manual (see CLAUDE.md).
 Usage (from 02_automation/): python tailoring_engine.py [--all] [--verbose]
-  no flag: the top lead only; --all: every score-6 lead.
+  no flag: the top lead only; --all: the whole apply_today shortlist
+  (score >= MIN_SCORE for data_ai, >= AI_TRAINING_MIN_SCORE for ai_training).
 """
 
 import argparse
@@ -28,7 +29,6 @@ from scrapers.getonboard_scraper import html_to_text
 
 CV_HTML = Path(__file__).resolve().parents[1] / "cv-ian-no-photo.html"
 TAILORED_DIR = TRACKING_DIR / "tailored"
-TOP_SCORE = 6
 TIMEOUT_S = 120
 MAX_TOKENS = 16384  # gpt-oss reasons before answering; the default cut the JSON short
 MIN_COVERED = 2  # fewer covered requirements than this: no pitch, SKIP file
@@ -169,14 +169,14 @@ def tailor_all(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--all", action="store_true", help="every score-6 lead")
+    parser.add_argument("--all", action="store_true", help="the whole shortlist")
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     args = parser.parse_args()
     setup_logging(args.verbose)
     if not GROQ_API_KEY:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     leads = load_leads(TRACKING_DIR)
-    top = select_top(leads, TOP_SCORE) if args.all else select_top(leads).head(1)
+    top = select_top(leads) if args.all else select_top(leads).head(1)
     cv_text = html_to_text(STYLE.sub("", CV_HTML.read_text(encoding="utf-8")))
     written = tailor_all(top, cv_text, TAILORED_DIR, requests.Session())
     print(f"{len(written)}/{len(top)} archivos -> {TAILORED_DIR}")

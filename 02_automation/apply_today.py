@@ -11,7 +11,10 @@ from pathlib import Path
 import pandas as pd
 
 from config import (
+    AI_CONTEXT_KEYWORDS,
+    AI_TRAINING_MIN_SCORE,
     BLACKLIST_KEYWORDS,
+    BROAD_TITLE_KEYWORDS,
     MIN_SCORE,
     PROFILE_KEYWORDS,
     TRACKING_DIR,
@@ -35,18 +38,29 @@ logger = logging.getLogger(__name__)
 
 PROFILE = whole_words(PROFILE_KEYWORDS)
 BLACKLIST = whole_words(BLACKLIST_KEYWORDS)
+BROAD_TITLE = whole_words(BROAD_TITLE_KEYWORDS)
+AI_CONTEXT = whole_words(AI_CONTEXT_KEYWORDS)
 
 
 def matches_profile(leads: pd.DataFrame) -> pd.Series:
     # title only: QA/Full-Stack requisitos also list Python or "bases de datos"
     # either vertical: Data & AI or AI training / evaluation
     titles = leads["titulo"]
-    wanted = titles.str.contains(PROFILE) | titles.str.contains(AI_TRAINING_TITLE)
+    # shortcut: requisitos is only the description's first lines; read the whole
+    # description at scrape time if broad titles with AI further down get missed
+    broad = titles.str.contains(BROAD_TITLE) & leads["requisitos"].astype(
+        str
+    ).str.contains(AI_CONTEXT)
+    wanted = (
+        titles.str.contains(PROFILE) | titles.str.contains(AI_TRAINING_TITLE) | broad
+    )
     return wanted & ~titles.str.contains(BLACKLIST)
 
 
 def select_top(leads: pd.DataFrame, min_score: int = MIN_SCORE) -> pd.DataFrame:
-    keep = (leads["score_jd"] >= min_score) & matches_profile(leads)
+    # ai_training gets a lower bar: ghost risk matters less for per-project gigs
+    bar = leads["vertical"].map({"ai_training": AI_TRAINING_MIN_SCORE})
+    keep = (leads["score_jd"] >= bar.fillna(min_score)) & matches_profile(leads)
     return leads[keep].sort_values("score_jd", ascending=False, kind="stable")
 
 
