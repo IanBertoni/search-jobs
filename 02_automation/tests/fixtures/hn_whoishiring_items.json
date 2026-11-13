@@ -1,0 +1,13 @@
+{"id": 45800001, "title": "Ask HN: Who is hiring? (November 2026)", "children": [
+  {"id": 101, "author": "jane_founder", "text": "Acme AI | Data Engineer | REMOTE (LATAM ok) | Full-time<p>Seed-stage, we build RAG tooling in Python. Email jobs@acme.ai", "children": [
+    {"id": 1011, "author": "curious", "text": "Is this remote for Python folks too?", "children": []}
+  ]},
+  {"id": 102, "author": "bob", "text": "Ferrous | Backend Engineer (Rust) | Remote | Full-time<p>Small team, 2+ years of Rust.", "children": []},
+  {"id": 103, "author": "carol", "text": "BigCo | Senior Data Engineer | Remote<p>Python, Spark.", "children": []},
+  {"id": 104, "author": "dave", "text": "Shopz | ML Engineer | Remote (US only)<p>Python, AI.", "children": []},
+  {"id": 105, "author": "erin", "text": "Visa Inc | AI Engineer | NYC onsite<p>We sponsor H1B. Python.", "children": []},
+  {"id": 106, "author": "frank", "text": "Bakery | Frontend Developer | Remote<p>React, TypeScript, 6+ years.", "children": []},
+  {"id": 107, "author": "gina", "text": "Maintainers | Office Manager | Berlin<p>Help us maintain the office.", "children": []},
+  {"id": 108, "author": null, "text": null, "children": []},
+  {"id": 109, "author": "hank", "text": "DataCo | Python Developer | Remote<p>5+ years of experience required.", "children": []}
+]}
