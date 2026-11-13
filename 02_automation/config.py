@@ -65,6 +65,17 @@ AI_TRAINING_KEYWORDS = _env(
     ",code evaluator,ai rater,rlhf,annotation,swe-bench,coding specialist",
     _keywords,
 )
+# an ai_training posting also needs one of these in its title or description
+AI_TRAINING_TECH_KEYWORDS = _env(
+    "AI_TRAINING_TECH_KEYWORDS",
+    "code,coding,python,software,engineer,swe,backend,frontend,data,ml,llm,rag"
+    ",programming,javascript,typescript,sql,api",
+    _keywords,
+)
+# shortlist order: Anyone AI first, then titles with these words, then the rest
+FIT_TITLE_KEYWORDS = _env(
+    "FIT_TITLE_KEYWORDS", "coding,code,python,software,swe,backend", _keywords
+)
 
 GROQ_API_KEY = _env("GROQ_API_KEY", "")
 GROQ_MODEL = _env("GROQ_MODEL", "openai/gpt-oss-120b")

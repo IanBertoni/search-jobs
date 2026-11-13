@@ -113,7 +113,7 @@ def test_source_failure_logs_error_and_returns_none(fetch, response, caplog):
     assert "skipped" in caplog.text
 
 
-def test_dedupe_matches_platform_names_across_aggregators():
+def test_dedupe_keeps_the_same_role_listed_on_two_aggregators():
     jobs = pd.DataFrame(
         {
             "titulo": ["AI Coding Evaluator", "AI Coding Evaluator"],
@@ -122,4 +122,4 @@ def test_dedupe_matches_platform_names_across_aggregators():
         }
     )
 
-    assert len(dedupe_jobs(jobs)) == 1
+    assert len(dedupe_jobs(jobs)) == 2  # different URLs: only exact URLs dedupe
