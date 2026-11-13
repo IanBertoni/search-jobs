@@ -6,6 +6,7 @@ The rest (careers page, layoffs, recruiter activity) need manual checks, so
 they count as 0 risk: most postings are real (jd-decoder base rates).
 """
 
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -19,6 +20,14 @@ MIN_PROJECT_CHARS = (
 MAX_BAND_RATIO = 2.0  # max/min salary above this spans several levels or geos
 MAX_SCORE = 6
 MAX_REQUIREMENTS = 5
+# pay, modality, hours and duration bullets: logistics, not requirements
+LOGISTICS = re.compile(
+    r"\$|\busd\b|per hour|/\s*h(?:ou)?r\b|\brate\b"
+    r"|\bremote\b|\bhybrid\b|\bon-site\b"
+    r"|\bhours?\b|\bpart-time\b|\bfull-time\b"
+    r"|\bcontract(?:or)?\b|\bfreelance\b|\bmonths?\b",
+    re.IGNORECASE,
+)
 MANUAL_REVIEW_PENDING = "PENDING"  # the 3 manual checks are still to do
 
 
@@ -61,7 +70,7 @@ def score_jd(job: Mapping[str, Any], now: datetime) -> int:
 
 
 def extract_requirements(text: str) -> list[str]:
-    """Take the first non-empty lines of a description as its must-haves.
+    """Take the first non-empty, non-logistics lines of a description as must-haves.
 
     Args:
         text: Plain-text job description.
@@ -70,6 +79,7 @@ def extract_requirements(text: str) -> list[str]:
         Up to ``MAX_REQUIREMENTS`` stripped lines; empty for empty text.
     """
     # jd-decoder: the earliest requirements are the must-haves
-    return [line.strip() for line in text.splitlines() if line.strip()][
+    lines = (line.strip() for line in text.splitlines())
+    return [line for line in lines if line and not LOGISTICS.search(line)][
         :MAX_REQUIREMENTS
     ]
