@@ -32,7 +32,8 @@ MAX_TOKENS = 4096  # gpt-oss reasons before answering
 MAX_YEARS = 5  # "5+ years" or more counts as senior
 logger = logging.getLogger(__name__)
 
-KEYWORDS = whole_words(["python", "data", "ai", "rust", "remote"])
+TECH = whole_words(["python", "data", "ai", "rust", "software"])
+CLOSED = whole_words(["no longer", "closed", "filled"])
 REJECT = whole_words(
     [
         "us only",
@@ -47,10 +48,11 @@ REJECT = whole_words(
     ]
 )
 YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
-REMOTE = whole_words(["remote"])
+REMOTE = whole_words(["remote", "worldwide", "latam"])
 LATAM = whole_words(
     ["latam", "latin america", "south america", "americas", "argentina"]
 )
+DANAGRO = re.compile(r"danagro precision", re.IGNORECASE)
 AI_TONE = re.compile(
     r"I am writing to|express my interest|I hope this (?:email|message) finds you",
     re.IGNORECASE,
@@ -65,7 +67,14 @@ Rules:
   email finds you well", "passionate", "excited to", "leverage", bullet points.
 - Start with "Hey <author>," using the HN username given, then name the role.
 - Mention: no CS degree, but built a production RAG pipeline in Python, and
-  Rust work at DanAgro Precision. Only these facts, invent nothing else.
+  Rust work at DanAgro Precision (always written exactly like that). Only these
+  facts about Ian, invent nothing else.
+- Add ONE specific line about what the company does, taken from the post (e.g.
+  "been following PostHog's open-source product analytics approach").
+- The Role field may be wrong ("Full-Time", "Remote", a city): if so, infer the
+  real role from the post text.
+- If the role is not technical (designer, sales, marketing, recruiter...), reply
+  with exactly SKIP and nothing else.
 - Include the GitHub: github.com/IanBertoni
 - Say he's in Argentina, fully remote. End asking for a quick chat.
 Example tone: "Hey jane, saw you are hiring for a Data Engineer. I don't have a CS
@@ -93,14 +102,19 @@ def _is_senior(text: str) -> bool:
 
 
 def _offer(comment: dict) -> dict | None:
-    text = html_to_text(comment.get("text"))
-    if not text or not KEYWORDS.search(text) or _is_senior(text):
+    # HN never closes <p>, and html_to_text only breaks lines on closing tags
+    text = html_to_text((comment.get("text") or "").replace("<p>", "\n"))
+    if (
+        not text
+        or text.startswith("UPDATE")  # "UPDATE: no longer hiring" banners
+        or CLOSED.search(text)
+        or not (REMOTE.search(text) and TECH.search(text))
+        or _is_senior(text)
+    ):
         return None
     # HN convention: first line is "Company | Role | Location | ..."
     fields = [f.strip() for f in text.splitlines()[0].split("|")]
-    remote = "Remote" if REMOTE.search(text) else "-"
-    if LATAM.search(text):
-        remote = "Remote/LATAM" if remote == "Remote" else "LATAM"
+    remote = "Remote/LATAM" if LATAM.search(text) else "Remote"
     return {
         "empresa": fields[0],
         "rol": fields[1] if len(fields) > 1 else "?",
@@ -122,8 +136,7 @@ def fetch_offers(session: requests.Session) -> list[dict]:
     time.sleep(REQUEST_DELAY_S)
     response = session.get(f"{ALGOLIA_URL}/items/{thread_id}", timeout=TIMEOUT_S)
     response.raise_for_status()
-    # remote first: --top cuts the list and on-site posts are rarely an option
-    return sorted(parse_offers(response.json()), key=lambda o: o["remoto"] == "-")
+    return parse_offers(response.json())
 
 
 def ask_groq(offer: dict, session: requests.Session) -> str:
@@ -158,6 +171,11 @@ def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
         except (requests.RequestException, KeyError, TypeError, ValueError) as error:
             logger.error("%s | %s: %s", offer["empresa"], offer["rol"], error)
             continue
+        if email == "SKIP":
+            logger.info("%s | %s: rol no técnico, SKIP", offer["empresa"], offer["rol"])
+            continue
+        # the model lowercases it to sound casual; the company name must stay right
+        email = DANAGRO.sub("DanAgro Precision", email)
         drafts.append({**offer, "email": email})
     return drafts
 
