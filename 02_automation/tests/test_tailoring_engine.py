@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from tailoring_engine import STRICT_RULES, _validate_pitch, tailor_all
+from tailoring_engine import (
+    AI_TRAINING_RULES,
+    STRICT_RULES,
+    _validate_pitch,
+    tailor_all,
+)
 
 LEAD = pd.DataFrame(
     {
@@ -16,6 +21,7 @@ LEAD = pd.DataFrame(
         "requisitos": ["Python | SQL | Airflow"],
         "fecha_scrapeo": ["2026-11-12"],
         "manual_review": ["PENDING"],
+        "vertical": ["data_ai"],
     }
 )
 
@@ -127,3 +133,16 @@ def test_pitch_with_cv_figures_is_accepted():
 )
 def test_pitch_with_inflated_claims_is_rejected(pitch):
     assert _validate_pitch(pitch, CV)
+
+
+def test_ai_training_pitch_is_short_and_skips_the_cv(tmp_path):
+    lead = LEAD.assign(titulo="AI Coding Evaluator", vertical="ai_training")
+    session = groq_session()
+
+    [out] = tailor_all(lead, "CV de Ian", tmp_path, session)
+
+    system = session.post.call_args.kwargs["json"]["messages"][0]["content"]
+    assert AI_TRAINING_RULES in system
+    text = out.read_text(encoding="utf-8")
+    assert "## PITCH" in text and "## NOTAS" in text
+    assert "## CV ADAPTADO" not in text and "RAG pipeline" not in text

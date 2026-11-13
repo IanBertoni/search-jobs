@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 import requests
 
-from scrapers import getonboard_scraper, remotive_scraper
+from scrapers import ai_training_scraper, getonboard_scraper, remotive_scraper
 from scrapers.getonboard_scraper import (
     LEAD_COLUMNS,
     RETRY_BACKOFF_S,
@@ -32,8 +32,10 @@ def raw_jobs():
 
 @pytest.fixture(autouse=True)
 def remotive_offline(monkeypatch):
-    # main() also reads Remotive; keep these tests off the network with 0 jobs
+    # main() also reads the feed sources; keep these tests off the network, 0 jobs
     monkeypatch.setattr(remotive_scraper, "fetch_remotive", lambda: clean_jobs([]))
+    for fetch in ("fetch_aitrainer_work", "fetch_aitraining_jobs"):
+        monkeypatch.setattr(ai_training_scraper, fetch, lambda: clean_jobs([]))
 
 
 NOT_JSON = object()
@@ -243,7 +245,9 @@ def test_keep_target_levels_excludes_semi_senior(seniority_id, kept):
     [
         ("Data Engineer Jr", "", True),
         ("Practicante Data Science", "", True),
-        ("Data Engineer", "Buscamos perfil semi-senior", True),
+        # Semi Senior means 3-5 years in LATAM: not a target level keyword
+        ("Data Engineer", "Buscamos perfil semi-senior", False),
+        ("Data Engineer SSR", "", False),
         ("Data Engineer", "Ideal sin experiencia previa", True),
         ("Data Engineer", "5+ years required", False),
         # no seniority and no level keyword: the stack decides

@@ -56,6 +56,14 @@ STRICT_RULES = (
     "'en producción' salvo que el CV lo diga literalmente."
 )
 
+AI_TRAINING_RULES = (
+    "\nEsta oferta es de AI training / evaluación de modelos. Pitch: 3 líneas"
+    " cortas y directas que mencionen SOLO: el pipeline RAG que descarta outputs"
+    " sin cita verificable (sé detectar alucinaciones), los más de 1,200 tests"
+    " automatizados (sé evaluar si un código cubre los edge cases) y que soy"
+    ' bilingüe (español nativo, inglés B2). "cv": string vacío.'
+)
+
 # pitch guardrail: the model still inflates claims despite the prompt
 YEARS = re.compile(r"\b(años|years)\b", re.IGNORECASE)  # "5 años", "cinco años"
 NUMBER = re.compile(r"\d+(?:[.,]\d+)*")
@@ -125,23 +133,29 @@ def render(lead, tailored: dict, rejection: str | None = None) -> str:
         if rejection
         else f"## PITCH\n\n{tailored['pitch']}\n\n"
     )
+    # ai_training gigs are won on the pitch: the full CV isn't needed there
+    cv = (
+        ""
+        if lead.vertical == "ai_training"
+        else f"## CV ADAPTADO\n\n{tailored['cv']}\n\n"
+    )
     questions = "\n".join(f"- {q}" for q in tailored["preguntas"])
     return (
-        f"{header}{pitch}"
-        f"## CV ADAPTADO\n\n{tailored['cv']}\n\n"
+        f"{header}{pitch}{cv}"
         f"## NOTAS\n\n{questions}\n\nCobertura: {ratio}. {not_covered}\n"
     )
 
 
 def tailor(lead, cv_text: str, session: requests.Session) -> str:
     """Ask Groq; an invented pitch gets one stricter retry, then FAILED_VALIDATION."""
-    tailored = ask_groq(lead, cv_text, session)
+    rules = AI_TRAINING_RULES if lead.vertical == "ai_training" else ""
+    tailored = ask_groq(lead, cv_text, session, rules)
     if len(tailored["cubiertos"]) < MIN_COVERED:
         return render(lead, tailored)
     rejection = _validate_pitch(tailored["pitch"], cv_text)
     if rejection:
         logger.warning("%s | pitch rechazado, regenero: %s", lead.empresa, rejection)
-        tailored = ask_groq(lead, cv_text, session, STRICT_RULES)
+        tailored = ask_groq(lead, cv_text, session, rules + STRICT_RULES)
         rejection = _validate_pitch(tailored["pitch"], cv_text)
         if rejection:
             logger.warning("%s | FAILED_VALIDATION: %s", lead.empresa, rejection)

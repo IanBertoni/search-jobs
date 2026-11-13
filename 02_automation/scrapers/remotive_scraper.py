@@ -3,6 +3,7 @@
 robots.txt disallows remotive.com/api/*, so this reads the public RSS feed.
 Remotive asks for at most ~4 requests a day and a link back to the posting:
 the radar runs once a day and every lead keeps its Remotive link.
+Also holds the RSS/feed helpers the other feed sources reuse.
 """
 
 import logging
@@ -20,8 +21,54 @@ from scrapers.getonboard_scraper import (
 
 REMOTIVE_FEED = "https://remotive.com/remote-jobs/feed/artificial-intelligence"
 PUB_DATE_FORMAT = "%a, %d %b %Y %H:%M:%S %Z"  # RFC 822: "Thu, 22 Oct 2026 18:40:19 GMT"
+RSS_TAGS = ["title", "company", "link", "pubDate", "description"]
 
 logger = logging.getLogger(__name__)
+
+
+def read_rss(session: requests.Session, url: str, source: str) -> pd.DataFrame | None:
+    """Fetch an RSS feed: one row per <item>, one column per tag in ``RSS_TAGS``.
+
+    Returns None (logged as ERROR) if the request fails or the XML is broken.
+    """
+    # shortcut: one attempt, no retry; the next daily run picks the feed up again
+    try:
+        response = session.get(url, timeout=TIMEOUT_S)
+        response.raise_for_status()
+        items = ET.fromstring(response.content).iter("item")
+    except (requests.RequestException, ET.ParseError) as error:
+        logger.error("%s: feed skipped: %s", source, error)
+        return None
+    return pd.DataFrame(
+        [{tag: item.findtext(tag) for tag in RSS_TAGS} for item in items],
+        columns=RSS_TAGS,
+    )
+
+
+def feed_jobs(rows: pd.DataFrame) -> pd.DataFrame:
+    """Shape feed rows like ``clean_jobs`` output.
+
+    Args:
+        rows: Columns titulo, empresa, link, description (HTML or text) and
+            fecha (aware datetime); min_salary and max_salary are optional.
+    """
+    rows = rows.reset_index(drop=True)
+    description = rows["description"].map(html_to_text)
+    return (
+        clean_jobs([])
+        .reindex(rows.index)
+        .assign(
+            titulo=_text_or_unknown(rows["titulo"], "title"),
+            empresa=_text_or_unknown(rows["empresa"], "company"),
+            link=_text_or_unknown(rows["link"], "link"),
+            descripcion=description,
+            # no separate project field: the description is the posting's whole context
+            proyecto=description,
+            fecha=rows["fecha"],
+            min_salary=rows.get("min_salary"),
+            max_salary=rows.get("max_salary"),
+        )
+    )
 
 
 def fetch_remotive(session: requests.Session | None = None) -> pd.DataFrame | None:
@@ -34,38 +81,19 @@ def fetch_remotive(session: requests.Session | None = None) -> pd.DataFrame | No
         One row per posting with the ``clean_jobs`` columns (no salary or
         seniority in the feed), or None if the feed failed or isn't valid XML.
     """
-    # shortcut: one attempt, no retry; the next daily run picks the feed up again
-    session = session or requests.Session()
-    try:
-        response = session.get(REMOTIVE_FEED, timeout=TIMEOUT_S)
-        response.raise_for_status()
-        items = ET.fromstring(response.content).iter("item")
-    except (requests.RequestException, ET.ParseError) as error:
-        logger.error("remotive: feed skipped: %s", error)
+    feed = read_rss(session or requests.Session(), REMOTIVE_FEED, "remotive")
+    if feed is None:
         return None
-    feed = pd.DataFrame(
-        [
+    return feed_jobs(
+        pd.DataFrame(
             {
-                tag: item.findtext(tag)
-                for tag in ("title", "company", "link", "pubDate", "description")
+                "titulo": feed["title"],
+                "empresa": feed["company"],
+                "link": feed["link"],
+                "description": feed["description"],
+                "fecha": pd.to_datetime(
+                    feed["pubDate"], format=PUB_DATE_FORMAT, utc=True, errors="coerce"
+                ),
             }
-            for item in items
-        ],
-        columns=["title", "company", "link", "pubDate", "description"],
-    )
-    description = feed["description"].map(html_to_text)
-    return (
-        clean_jobs([])
-        .reindex(range(len(feed)))
-        .assign(
-            titulo=_text_or_unknown(feed["title"], "title"),
-            empresa=_text_or_unknown(feed["company"], "company"),
-            link=_text_or_unknown(feed["link"], "link"),
-            descripcion=description,
-            # no separate project field: the description is the posting's whole context
-            proyecto=description,
-            fecha=pd.to_datetime(
-                feed["pubDate"], format=PUB_DATE_FORMAT, utc=True, errors="coerce"
-            ),
         )
     )

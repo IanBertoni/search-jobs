@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 import requests
 
-from scrapers import getonboard_scraper, remotive_scraper
+from scrapers import ai_training_scraper, getonboard_scraper, remotive_scraper
 from scrapers.getonboard_scraper import (
     SOURCES,
     build_leads,
@@ -99,6 +99,18 @@ def test_ai_training_without_seniority_skips_the_junior_keyword_check():
     assert set(kept["empresa"]) == {"Toloka AI", "iMerit Technology"}
 
 
+def test_ai_training_titles_skip_the_seniority_filter_entirely():
+    jobs = pd.DataFrame(
+        {
+            "titulo": ["AI Coding Evaluator", "Data Engineer"],
+            "descripcion": ["", ""],
+            "seniority_id": [4, 4],  # Senior on both
+        }
+    )
+
+    assert list(keep_target_levels(jobs)["titulo"]) == ["AI Coding Evaluator"]
+
+
 def test_dedupe_by_link_or_by_title_and_company():
     remotive = fetch_remotive(FeedSession(FeedResponse()))
     getonboard = clean_jobs(GETONBOARD["data"])
@@ -119,6 +131,8 @@ def test_main_merges_remotive_into_the_snapshot(tmp_path, monkeypatch):
         "fetch_remotive",
         lambda: fetch_remotive(FeedSession(FeedResponse())),
     )
+    for fetch in ("fetch_aitrainer_work", "fetch_aitraining_jobs"):
+        monkeypatch.setattr(ai_training_scraper, fetch, lambda: clean_jobs([]))
     monkeypatch.setattr(getonboard_scraper, "setup_logging", lambda verbose: None)
     monkeypatch.setattr(getonboard_scraper, "TRACKING_DIR", tmp_path)
     monkeypatch.setattr("sys.argv", ["getonboard_scraper"])

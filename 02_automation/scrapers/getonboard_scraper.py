@@ -1,4 +1,4 @@
-"""Get on Board API + Remotive RSS -> 03_tracking/leads_YYYY-MM-DD.csv + leads_consolidated.csv.
+"""Get on Board API + Remotive/AI-training feeds -> 03_tracking/leads_YYYY-MM-DD.csv + leads_consolidated.csv.
 
 Usage (from 02_automation/): python -m scrapers.getonboard_scraper [--verbose]
 """
@@ -91,7 +91,8 @@ def vertical_of(titles: pd.Series) -> pd.Series:
 
 
 TARGET_LEVEL = re.compile(
-    r"\b(?:junior|trainee|entry[- ]level|ssr|semi[- ]?senior|jr|aprendiz"
+    # no ssr/semi-senior: in LATAM that's 3-5 years, not entry-level
+    r"\b(?:junior|trainee|entry[- ]level|jr|aprendiz"
     r"|practicante|sin experiencia)\b",
     re.IGNORECASE,
 )
@@ -245,9 +246,9 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     """
     text = jobs["titulo"] + " " + jobs["descripcion"]
     by_keyword = text.str.contains(TARGET_LEVEL) | text.str.contains(STACK)
-    by_keyword |= vertical_of(jobs["titulo"]) == "ai_training"
     by_api = jobs["seniority_id"].isin(SENIORITY_IDS)
-    return jobs[by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)]
+    by_level = by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)
+    return jobs[by_level | (vertical_of(jobs["titulo"]) == "ai_training")]
 
 
 def dedupe_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
@@ -261,7 +262,8 @@ def dedupe_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
     """
     jobs = jobs.drop_duplicates("link")
     title = jobs["titulo"].str.casefold().str.strip()
-    company = jobs["empresa"].str.casefold().str.strip()
+    # "anyoneai" (aitrainer.work) and "Anyone AI" (aitraining.jobs) are one company
+    company = jobs["empresa"].str.casefold().str.replace(r"[^a-z0-9]", "", regex=True)
     return jobs[~(title + "|" + company).duplicated()]
 
 
@@ -408,15 +410,23 @@ def main() -> None:
         SystemExit: If no source returned jobs; nothing is written then.
     """
     # local import: remotive_scraper reuses this module's helpers
-    from scrapers import remotive_scraper
+    from scrapers import ai_training_scraper, remotive_scraper
 
     setup_logging(parse_args(__doc__).verbose)
     now = datetime.now(UTC)
     raw_jobs, failed_sources = fetch_jobs()
-    remotive = remotive_scraper.fetch_remotive()
-    if remotive is None:
-        failed_sources.append("remotive")
-    found = [df for df in (clean_jobs(raw_jobs), remotive) if df is not None]
+    feeds = {
+        "remotive": remotive_scraper.fetch_remotive,
+        "aitrainer.work": ai_training_scraper.fetch_aitrainer_work,
+        "aitraining.jobs": ai_training_scraper.fetch_aitraining_jobs,
+    }
+    found = [clean_jobs(raw_jobs)]
+    for name, fetch in feeds.items():
+        feed = fetch()
+        if feed is None:
+            failed_sources.append(name)
+        else:
+            found.append(feed)
     found = [df for df in found if not df.empty]
     if not found:
         # an empty snapshot would overwrite today's good one

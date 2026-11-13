@@ -56,12 +56,13 @@ BROAD_TITLE_KEYWORDS = _env(
 AI_CONTEXT_KEYWORDS = _env(
     "AI_CONTEXT_KEYWORDS", "llm,rag,data pipeline,data pipelines,ai", _keywords
 )
-AI_TRAINING_MIN_SCORE = _env("AI_TRAINING_MIN_SCORE", "3", int)
+AI_TRAINING_MIN_SCORE = _env("AI_TRAINING_MIN_SCORE", "2", int)
 # second vertical: AI training / evaluation roles (Anyone AI, Mindrift...)
 AI_TRAINING_KEYWORDS = _env(
     "AI_TRAINING_KEYWORDS",
-    "evaluator,evaluación,trainer,training,annotation,quality analyst"
-    ",prompt specialist,ai trainer,coding evaluator,agent evaluator",
+    "evaluator,evaluación,ai trainer,coding trainer,software engineering ai trainer"
+    ",quality evaluator,agent evaluator,audio evaluator,prompt evaluator"
+    ",code evaluator,ai rater,rlhf,annotation,swe-bench,coding specialist",
     _keywords,
 )
 
