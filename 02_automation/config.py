@@ -30,6 +30,10 @@ def _env(name: str, default: str, cast: Callable[[str], Any] = str) -> Any:
 API_URL = _env("GETONBOARD_API_URL", "https://www.getonbrd.com/api/v0").rstrip("/")
 REQUEST_DELAY_S = _env("REQUEST_DELAY_S", "1.0", float)
 MIN_SCORE = _env("MIN_SCORE", "4", int)
+# Get on Board /api/v0/seniorities: 1 Sin experiencia, 2 Junior, 3 Semi Senior (3-5 years)
+SENIORITY_IDS = _env(
+    "SENIORITY_IDS", "1,2", lambda raw: {int(i) for i in _keywords(raw)}
+)
 PROFILE_KEYWORDS = _env(
     "PROFILE_KEYWORDS",
     "data,datos,ai,ia,ml,python,etl,analytics,machine learning"
