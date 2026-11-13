@@ -54,11 +54,11 @@ def test_render_markdown_lists_each_offer():
     assert "- Vertical: data_ai" in md
 
 
-def test_select_top_lowers_the_bar_to_three_for_ai_training():
+def test_select_top_lowers_the_bar_to_two_for_ai_training():
     leads = pd.DataFrame(
         {
             "titulo": ["AI Coding Evaluator", "Data Engineer"],
-            "score_jd": [3, 3],
+            "score_jd": [2, 3],
             "vertical": ["ai_training", "data_ai"],
             "requisitos": ["", ""],
         }
@@ -105,8 +105,14 @@ def test_select_top_drops_offers_outside_data_ai_profile():
         ("Python Developer - AI Trainer", True),
         ("Analista de Evaluación de Modelos", True),
         ("Video Annotation Specialist", True),
-        ("Quality Analyst", True),
-        ("Prompt Specialist", True),
+        ("Software Engineering AI Trainer", True),
+        ("AI Rater", True),
+        ("RLHF Specialist", True),
+        ("SWE-Bench Task Writer", True),
+        ("Audio Evaluator", True),
+        ("Coding Specialist", True),
+        ("Quality Analyst", False),
+        ("Prompt Specialist", False),
         ("Sales Trainer", False),
         ("Trainee Account Executive", False),
     ],
