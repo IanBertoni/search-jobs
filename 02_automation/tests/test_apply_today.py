@@ -19,6 +19,8 @@ LEADS = pd.DataFrame(
         "fecha_scrapeo": ["2026-11-12"] * 4,
         "manual_review": ["PENDING"] * 4,
         "vertical": ["data_ai"] * 4,
+        "pais": ["Remote", "Unknown", "Remote", "Hybrid: Chile"],
+        "priority": ["P1", "P2", "P1", "P3"],
     }
 )
 
@@ -36,6 +38,7 @@ def test_select_top_shows_score_six_first_then_five_and_four():
             "empresa": ["Acme"] * 5,
             "score_jd": [4, 6, 3, 5, 6],
             "vertical": ["data_ai"] * 5,
+            "priority": ["P1"] * 5,
             "requisitos": [""] * 5,
         }
     )
@@ -53,6 +56,7 @@ def test_render_markdown_lists_each_offer():
     assert "Ghost Analyst" not in md
     assert "- Revisión manual: PENDING (careers page" in md
     assert "- Vertical: data_ai" in md
+    assert "- Prioridad: P1 (Remote)" in md
 
 
 def test_select_top_lowers_the_bar_to_two_for_ai_training():
@@ -62,6 +66,7 @@ def test_select_top_lowers_the_bar_to_two_for_ai_training():
             "empresa": ["mindrift", "Acme"],
             "score_jd": [2, 3],
             "vertical": ["ai_training", "data_ai"],
+            "priority": ["P1", "P1"],
             "requisitos": ["", ""],
         }
     )
@@ -100,6 +105,7 @@ def test_select_top_orders_by_fit_anyone_ai_then_coding_titles():
             "empresa": ["meridial", "mindrift", "anyoneai", "Acme", "Anyone AI"],
             "score_jd": [6, 4, 3, 6, 5],
             "vertical": ["ai_training"] * 3 + ["data_ai", "ai_training"],
+            "priority": ["P1"] * 5,
             "requisitos": [""] * 5,
         }
     )
@@ -113,6 +119,25 @@ def test_select_top_orders_by_fit_anyone_ai_then_coding_titles():
         "Audio Evaluator",  # the rest, by score
         "Data Engineer",
     ]
+
+
+def test_select_top_ranks_by_priority_before_fit_and_keeps_p3():
+    leads = pd.DataFrame(
+        {
+            "titulo": ["Backend Developer - AI Trainer"] * 3 + ["AI Coding Evaluator"],
+            "empresa": ["anyoneai", "anyoneai", "anyoneai", "mindrift"],
+            "score_jd": [6, 6, 6, 3],
+            "vertical": ["ai_training"] * 4,
+            "requisitos": [""] * 4,
+            "priority": ["P3", "P2", "P1", "P1"],
+        }
+    )
+
+    top = select_top(leads)
+
+    # a P1 from any platform beats Anyone AI in P2; P3 stays, ranked last
+    assert list(top["priority"]) == ["P1", "P1", "P2", "P3"]
+    assert list(top["empresa"])[:2] == ["anyoneai", "mindrift"]
 
 
 def test_select_top_drops_offers_outside_data_ai_profile():
