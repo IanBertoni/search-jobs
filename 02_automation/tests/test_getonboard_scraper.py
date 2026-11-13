@@ -221,8 +221,21 @@ def test_consolidate_ignores_its_own_output(tmp_path):
 def test_keep_target_levels_uses_api_seniority_as_hard_filter(raw_jobs):
     kept = keep_target_levels(clean_jobs(raw_jobs))
 
-    assert "Lead Data Scientist" not in set(kept["titulo"])
-    assert len(kept) == 2
+    # the fixture only has Semi Senior (id 3, 3-5 years) and Lead (id 5) roles
+    assert kept.empty
+
+
+@pytest.mark.parametrize(("seniority_id", "kept"), [(1, True), (2, True), (3, False)])
+def test_keep_target_levels_excludes_semi_senior(seniority_id, kept):
+    jobs = pd.DataFrame(
+        {
+            "titulo": ["Data Engineer"],
+            "descripcion": [""],
+            "seniority_id": [seniority_id],
+        }
+    )
+
+    assert len(keep_target_levels(jobs)) == int(kept)
 
 
 @pytest.mark.parametrize(

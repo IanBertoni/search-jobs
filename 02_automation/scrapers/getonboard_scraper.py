@@ -20,6 +20,7 @@ from config import (
     AI_TRAINING_KEYWORDS,
     API_URL,
     REQUEST_DELAY_S,
+    SENIORITY_IDS,
     STACK_KEYWORDS,
     TRACKING_DIR,
     setup_logging,
@@ -89,11 +90,6 @@ def vertical_of(titles: pd.Series) -> pd.Series:
     return is_training.map({True: "ai_training", False: "data_ai"})
 
 
-TARGET_SENIORITY_IDS = {
-    1,
-    2,
-    3,
-}  # /api/v0/seniorities: Sin experiencia, Junior, Semi Senior
 TARGET_LEVEL = re.compile(
     r"\b(?:junior|trainee|entry[- ]level|ssr|semi[- ]?senior|jr|aprendiz"
     r"|practicante|sin experiencia)\b",
@@ -250,7 +246,7 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     text = jobs["titulo"] + " " + jobs["descripcion"]
     by_keyword = text.str.contains(TARGET_LEVEL) | text.str.contains(STACK)
     by_keyword |= vertical_of(jobs["titulo"]) == "ai_training"
-    by_api = jobs["seniority_id"].isin(TARGET_SENIORITY_IDS)
+    by_api = jobs["seniority_id"].isin(SENIORITY_IDS)
     return jobs[by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)]
 
 
