@@ -111,17 +111,39 @@ def test_ai_training_titles_skip_the_seniority_filter_entirely():
     assert list(keep_target_levels(jobs)["titulo"]) == ["AI Coding Evaluator"]
 
 
-def test_dedupe_by_link_or_by_title_and_company():
+def test_dedupe_only_drops_the_exact_same_url():
     remotive = fetch_remotive(FeedSession(FeedResponse()))
     getonboard = clean_jobs(GETONBOARD["data"])
     same_link = getonboard.iloc[[0]]
 
     jobs = dedupe_jobs(pd.concat([getonboard, same_link, remotive]))
 
+    # same title and company on another URL is another posting (other country...)
     analysts = jobs[jobs["titulo"] == "Systems Analyst (Fluent English)"]
-    assert len(analysts) == 1
-    assert analysts["link"].iloc[0].startswith("https://www.getonbrd.com")
-    assert len(jobs) == len(getonboard) + 1  # + the Remotive AI trainer
+    assert len(analysts) == 2
+    assert jobs["link"].is_unique
+    assert len(jobs) == len(getonboard) + len(remotive)
+
+
+@pytest.mark.parametrize(
+    ("titulo", "descripcion", "kept"),
+    [
+        ("Python Coding Specialist - Freelance AI Trainer Project", "", True),
+        ("Audio Evaluator", "Rate voice clips used to train an LLM", True),
+        ("Philosophy Specialist - Freelance AI Trainer Project", "", False),
+        ("Audio Evaluator", "Rate voice clips for naturalness", False),
+        ("Content Annotation Reviewer", "Review marketing copy", False),
+    ],
+)
+def test_ai_training_needs_a_technical_word_in_title_or_description(
+    titulo, descripcion, kept
+):
+    # seniority 2 too: a non-technical training gig is dropped, not let through
+    jobs = pd.DataFrame(
+        {"titulo": [titulo], "descripcion": [descripcion], "seniority_id": [2]}
+    )
+
+    assert len(keep_target_levels(jobs)) == int(kept)
 
 
 def test_main_merges_remotive_into_the_snapshot(tmp_path, monkeypatch):

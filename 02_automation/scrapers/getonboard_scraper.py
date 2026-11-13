@@ -18,6 +18,7 @@ import requests
 
 from config import (
     AI_TRAINING_KEYWORDS,
+    AI_TRAINING_TECH_KEYWORDS,
     API_URL,
     REQUEST_DELAY_S,
     SENIORITY_IDS,
@@ -82,6 +83,7 @@ def whole_words(words: Iterable[str]) -> re.Pattern[str]:
 
 AI_TRAINING_TITLE = whole_words(AI_TRAINING_KEYWORDS)
 STACK = whole_words(STACK_KEYWORDS)
+TECH = whole_words(AI_TRAINING_TECH_KEYWORDS)
 
 
 def vertical_of(titles: pd.Series) -> pd.Series:
@@ -236,7 +238,8 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     API seniority is a hard filter; keywords only decide when it's missing.
     Without seniority, a posting that names the target stack (Python, LLM...)
     is kept too: many entry-level roles aren't labelled "Junior". So are AI
-    training roles: they ask for skills, not years.
+    training roles, whatever their seniority, as long as the title or the
+    description is technical (drops philosophy, audio and content gigs).
 
     Args:
         jobs: Output of ``clean_jobs``.
@@ -248,23 +251,23 @@ def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
     by_keyword = text.str.contains(TARGET_LEVEL) | text.str.contains(STACK)
     by_api = jobs["seniority_id"].isin(SENIORITY_IDS)
     by_level = by_api.where(jobs["seniority_id"].notna(), by_keyword).astype(bool)
-    return jobs[by_level | (vertical_of(jobs["titulo"]) == "ai_training")]
+    training = vertical_of(jobs["titulo"]) == "ai_training"
+    return jobs[(by_level & ~training) | (training & text.str.contains(TECH))]
 
 
 def dedupe_jobs(jobs: pd.DataFrame) -> pd.DataFrame:
-    """Drop a posting seen twice (same link, or same title and company).
+    """Drop a posting seen twice: only the exact same URL counts.
+
+    The same title and company on another URL is kept: platforms list one role
+    per country or language ("AI Coding Evaluator" for Argentina and Brazil).
 
     Args:
         jobs: ``clean_jobs``-shaped rows from every source, preferred first.
 
     Returns:
-        The first row of each posting.
+        The first row of each URL.
     """
-    jobs = jobs.drop_duplicates("link")
-    title = jobs["titulo"].str.casefold().str.strip()
-    # "anyoneai" (aitrainer.work) and "Anyone AI" (aitraining.jobs) are one company
-    company = jobs["empresa"].str.casefold().str.replace(r"[^a-z0-9]", "", regex=True)
-    return jobs[~(title + "|" + company).duplicated()]
+    return jobs.drop_duplicates("link")
 
 
 def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
@@ -432,7 +435,7 @@ def main() -> None:
         # an empty snapshot would overwrite today's good one
         logger.error("no jobs fetched from any source; leads files left untouched")
         raise SystemExit(1)
-    # Get on Board first: on a cross-source duplicate its richer posting wins
+    # Get on Board first: on a duplicate URL its richer posting wins
     jobs = keep_target_levels(dedupe_jobs(pd.concat(found, ignore_index=True)))
     snapshot = save_snapshot(
         build_leads(jobs, now), TRACKING_DIR, now, keep_existing=bool(failed_sources)

@@ -33,6 +33,7 @@ def test_select_top_shows_score_six_first_then_five_and_four():
     leads = pd.DataFrame(
         {
             "titulo": ["Data Engineer"] * 5,
+            "empresa": ["Acme"] * 5,
             "score_jd": [4, 6, 3, 5, 6],
             "vertical": ["data_ai"] * 5,
             "requisitos": [""] * 5,
@@ -58,6 +59,7 @@ def test_select_top_lowers_the_bar_to_two_for_ai_training():
     leads = pd.DataFrame(
         {
             "titulo": ["AI Coding Evaluator", "Data Engineer"],
+            "empresa": ["mindrift", "Acme"],
             "score_jd": [2, 3],
             "vertical": ["ai_training", "data_ai"],
             "requisitos": ["", ""],
@@ -83,6 +85,34 @@ def test_broad_engineering_titles_need_ai_in_the_requirements(
     lead = pd.DataFrame({"titulo": [titulo], "requisitos": [requisitos]})
 
     assert matches_profile(lead).iloc[0] == matches
+
+
+def test_select_top_orders_by_fit_anyone_ai_then_coding_titles():
+    leads = pd.DataFrame(
+        {
+            "titulo": [
+                "Audio Evaluator",
+                "Python Coding Specialist - AI Trainer",
+                "Physics Expert - AI Trainer",
+                "Data Engineer",
+                "Backend Developer - AI Trainer",
+            ],
+            "empresa": ["meridial", "mindrift", "anyoneai", "Acme", "Anyone AI"],
+            "score_jd": [6, 4, 3, 6, 5],
+            "vertical": ["ai_training"] * 3 + ["data_ai", "ai_training"],
+            "requisitos": [""] * 5,
+        }
+    )
+
+    order = list(select_top(leads)["titulo"])
+
+    assert order == [
+        "Backend Developer - AI Trainer",  # Anyone AI, higher score first
+        "Physics Expert - AI Trainer",  # Anyone AI
+        "Python Coding Specialist - AI Trainer",  # coding title
+        "Audio Evaluator",  # the rest, by score
+        "Data Engineer",
+    ]
 
 
 def test_select_top_drops_offers_outside_data_ai_profile():

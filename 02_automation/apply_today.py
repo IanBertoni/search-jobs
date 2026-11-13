@@ -15,6 +15,7 @@ from config import (
     AI_TRAINING_MIN_SCORE,
     BLACKLIST_KEYWORDS,
     BROAD_TITLE_KEYWORDS,
+    FIT_TITLE_KEYWORDS,
     MIN_SCORE,
     PROFILE_KEYWORDS,
     TRACKING_DIR,
@@ -40,6 +41,8 @@ PROFILE = whole_words(PROFILE_KEYWORDS)
 BLACKLIST = whole_words(BLACKLIST_KEYWORDS)
 BROAD_TITLE = whole_words(BROAD_TITLE_KEYWORDS)
 AI_CONTEXT = whole_words(AI_CONTEXT_KEYWORDS)
+FIT_TITLE = whole_words(FIT_TITLE_KEYWORDS)
+TOP_PLATFORM = "anyoneai"  # aitrainer.work key; "Anyone AI" elsewhere
 
 
 def matches_profile(leads: pd.DataFrame) -> pd.Series:
@@ -61,7 +64,18 @@ def select_top(leads: pd.DataFrame, min_score: int = MIN_SCORE) -> pd.DataFrame:
     # ai_training gets a lower bar: ghost risk matters less for per-project gigs
     bar = leads["vertical"].map({"ai_training": AI_TRAINING_MIN_SCORE})
     keep = (leads["score_jd"] >= bar.fillna(min_score)) & matches_profile(leads)
-    return leads[keep].sort_values("score_jd", ascending=False, kind="stable")
+    top = leads[keep]
+    # by fit, then score: score_jd is ghost risk and barely varies in ai_training
+    company = top["empresa"].astype(str).str.casefold()
+    is_top_platform = company.str.replace(r"[^a-z0-9]", "", regex=True) == TOP_PLATFORM
+    fit = (~is_top_platform).astype(int) + (
+        ~is_top_platform & ~top["titulo"].str.contains(FIT_TITLE)
+    ).astype(int)
+    return (
+        top.assign(_fit=fit)
+        .sort_values(["_fit", "score_jd"], ascending=[True, False], kind="stable")
+        .drop(columns="_fit")
+    )
 
 
 def render_markdown(top: pd.DataFrame) -> str:
