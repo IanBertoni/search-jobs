@@ -1,9 +1,9 @@
 """Tailor pitch + CV + interview notes per lead with Groq -> 03_tracking/tailored/.
 
 Read-only: applying stays manual (see CLAUDE.md).
-Usage (from 02_automation/): python tailoring_engine.py [--all] [--verbose]
-  no flag: the top lead only; --all: the whole apply_today shortlist
-  (score >= MIN_SCORE for data_ai, >= AI_TRAINING_MIN_SCORE for ai_training).
+Usage (from 02_automation/): python tailoring_engine.py [--all] [--top N] [--verbose]
+  no flag: the first lead only; --all or --top N: the first N (default 15) of
+  the apply_today shortlist (priority, then fit), never P3 postings.
 """
 
 import argparse
@@ -30,6 +30,7 @@ from scrapers.getonboard_scraper import html_to_text
 CV_HTML = Path(__file__).resolve().parents[1] / "cv-ian-no-photo.html"
 TAILORED_DIR = TRACKING_DIR / "tailored"
 TIMEOUT_S = 120
+TOP_N = 15
 MAX_TOKENS = 16384  # gpt-oss reasons before answering; the default cut the JSON short
 MIN_COVERED = 2  # fewer covered requirements than this: no pitch, SKIP file
 logger = logging.getLogger(__name__)
@@ -162,6 +163,11 @@ def tailor(lead, cv_text: str, session: requests.Session) -> str:
     return render(lead, tailored, rejection)
 
 
+def pick_batch(shortlist: pd.DataFrame, n: int) -> pd.DataFrame:
+    """First ``n`` of the shortlist, skipping P3 (must live elsewhere)."""
+    return shortlist[shortlist["priority"] != "P3"].head(n)
+
+
 def tailor_all(
     leads: pd.DataFrame, cv_text: str, out_dir: Path, session: requests.Session
 ) -> list[Path]:
@@ -175,7 +181,9 @@ def tailor_all(
         except (requests.RequestException, ValueError, KeyError, TypeError) as error:
             logger.error("%s | %s: %s", lead.empresa, lead.titulo, error)
             continue
-        path = out_dir / f"{slug(lead.empresa)}_{slug(lead.titulo)}.md"
+        # country + priority: one role listed per country must not overwrite itself
+        name = f"{slug(lead.empresa)}_{slug(lead.titulo)}_{slug(lead.pais)}_{lead.priority}"
+        path = out_dir / f"{name}.md"
         path.write_text(text, encoding="utf-8")
         written.append(path)
     return written
@@ -183,14 +191,16 @@ def tailor_all(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--all", action="store_true", help="the whole shortlist")
+    parser.add_argument("--all", action="store_true", help=f"the top {TOP_N}")
+    parser.add_argument("--top", type=int, help="how many leads (implies --all)")
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     args = parser.parse_args()
     setup_logging(args.verbose)
     if not GROQ_API_KEY:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     leads = load_leads(TRACKING_DIR)
-    top = select_top(leads) if args.all else select_top(leads).head(1)
+    batch = args.top or (TOP_N if args.all else 1)
+    top = pick_batch(select_top(leads), batch)
     cv_text = html_to_text(STYLE.sub("", CV_HTML.read_text(encoding="utf-8")))
     written = tailor_all(top, cv_text, TAILORED_DIR, requests.Session())
     print(f"{len(written)}/{len(top)} archivos -> {TAILORED_DIR}")

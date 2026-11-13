@@ -173,8 +173,8 @@ def test_build_leads_roundtrips_csv(raw_jobs, tmp_path):
 
 
 def write_snapshot(folder, day, rows):
-    # legacy layout: snapshots written before manual_review and vertical existed
-    pd.DataFrame(rows, columns=LEAD_COLUMNS[:-2]).to_csv(
+    # legacy layout: before manual_review, vertical, pais and priority existed
+    pd.DataFrame(rows, columns=LEAD_COLUMNS[:-4]).to_csv(
         folder / f"leads_{day}.csv", index=False
     )
 
@@ -207,6 +207,7 @@ def test_consolidate_dedupes_by_link_keeping_latest(tmp_path):
     assert merged.set_index("link").loc["https://x/1", "titulo"] == "New"
     assert (merged["manual_review"] == "PENDING").all()  # added to legacy snapshots
     assert (merged["vertical"] == "data_ai").all()  # classified from the title
+    assert (merged["priority"] == "P2").all()  # country unknown
 
 
 def test_consolidate_ignores_its_own_output(tmp_path):

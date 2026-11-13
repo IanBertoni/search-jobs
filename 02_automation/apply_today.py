@@ -73,7 +73,11 @@ def select_top(leads: pd.DataFrame, min_score: int = MIN_SCORE) -> pd.DataFrame:
     ).astype(int)
     return (
         top.assign(_fit=fit)
-        .sort_values(["_fit", "score_jd"], ascending=[True, False], kind="stable")
+        .sort_values(
+            ["priority", "_fit", "score_jd"],
+            ascending=[True, True, False],
+            kind="stable",
+        )
         .drop(columns="_fit")
     )
 
@@ -85,6 +89,7 @@ def render_markdown(top: pd.DataFrame) -> str:
         sections.append(
             f"## {lead.titulo} — {lead.empresa}\n\n"
             f"- Score JD: {lead.score_jd}/6\n- Vertical: {lead.vertical}\n"
+            f"- Prioridad: {lead.priority} ({lead.pais})\n"
             f"- Link: {lead.link}\n"
             f"- Revisión manual: {lead.manual_review} ({MANUAL_CHECKS})\n\n"
             f"**Requisitos clave:**\n\n{reqs}\n"

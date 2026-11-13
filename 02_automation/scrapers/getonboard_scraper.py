@@ -53,6 +53,8 @@ RAW_COLUMNS = [
     "attributes.min_salary",
     "attributes.max_salary",
     "attributes.seniority.data.id",
+    "attributes.remote_modality",
+    "attributes.countries",
 ]
 LEAD_COLUMNS = [
     "titulo",
@@ -63,6 +65,8 @@ LEAD_COLUMNS = [
     "fecha_scrapeo",
     "manual_review",
     "vertical",
+    "pais",
+    "priority",
 ]
 SNAPSHOT_GLOB = "leads_????-??-??.csv"  # dated files only, never leads_consolidated.csv
 CONSOLIDATED_CSV = "leads_consolidated.csv"
@@ -92,6 +96,24 @@ def vertical_of(titles: pd.Series) -> pd.Series:
     return is_training.map({True: "ai_training", False: "data_ai"})
 
 
+REMOTE_MODALITY = {
+    "fully_remote": "Remote",
+    "remote_local": "Remote (local)",  # remote, but from the company's country
+    "hybrid": "Hybrid",
+    "no_remote": "On-site",
+}
+# country is a priority, never a filter: P1 anywhere/LATAM, P2 unclear or
+# country-specific, P3 must live elsewhere (still listed, ranked last)
+ANYWHERE = re.compile(
+    r"\b(?:argentina|latam|latin america|world ?wide|anywhere|global|most countries)\b",
+    re.IGNORECASE,
+)
+ONLY_THERE = re.compile(r"\bonly\b|^hybrid\b|^on-site\b", re.IGNORECASE)
+MUST_LIVE_THERE = re.compile(
+    r"must be (?:based|located|residing) in|\b(?:eu|uk|us|usa)[- ]only\b"
+    r"|\bonly (?:in )?(?:the )?(?:eu|uk|us|usa|united states)\b",
+    re.IGNORECASE,
+)
 TARGET_LEVEL = re.compile(
     # no ssr/semi-senior: in LATAM that's 3-5 years, not entry-level
     r"\b(?:junior|trainee|entry[- ]level|jr|aprendiz"
@@ -228,8 +250,49 @@ def clean_jobs(raw_jobs: list[dict]) -> pd.DataFrame:
             "min_salary": df["attributes.min_salary"],
             "max_salary": df["attributes.max_salary"],
             "seniority_id": df["attributes.seniority.data.id"],
+            "pais": _getonboard_pais(
+                df["attributes.remote_modality"], df["attributes.countries"]
+            ),
         }
     ).reset_index(drop=True)
+
+
+def priority_of(pais: pd.Series, descripcion: pd.Series) -> pd.Series:
+    """Rank where a posting can be worked from: "P1", "P2" or "P3".
+
+    Args:
+        pais: Location as the source states it ("Remote, LATAM", "Unknown"...).
+        descripcion: Plain-text description, checked for "must be based in".
+
+    Returns:
+        P1 for Argentina, LATAM, worldwide or plain "Remote"; P3 when the
+        posting restricts where you live (only/hybrid/on-site, must be based
+        in); P2 for the rest, including an unknown country.
+    """
+    pais = pais.fillna(UNKNOWN).astype(str)
+    restricted = pais.str.contains(ONLY_THERE) | descripcion.fillna("").astype(
+        str
+    ).str.contains(MUST_LIVE_THERE)
+    anywhere = pais.str.contains(ANYWHERE) | (
+        pais.str.strip().str.casefold() == "remote"
+    )
+    return pd.Series("P2", index=pais.index).mask(anywhere, "P1").mask(restricted, "P3")
+
+
+def _getonboard_pais(modality: pd.Series, countries: pd.Series) -> pd.Series:
+    def one(mode: Any, where: Any) -> str:
+        label = REMOTE_MODALITY.get(mode) if isinstance(mode, str) else None
+        if label is None:
+            return UNKNOWN
+        if mode in ("hybrid", "no_remote") and isinstance(where, list) and where:
+            return f"{label}: {', '.join(where)}"
+        return label
+
+    return pd.Series(
+        [one(mode, where) for mode, where in zip(modality, countries)],
+        index=modality.index,
+        dtype=object,
+    )
 
 
 def keep_target_levels(jobs: pd.DataFrame) -> pd.DataFrame:
@@ -289,6 +352,7 @@ def build_leads(jobs: pd.DataFrame, now: datetime) -> pd.DataFrame:
             fecha_scrapeo=now.date().isoformat(),
             manual_review=MANUAL_REVIEW_PENDING,
             vertical=vertical_of(jobs["titulo"]),
+            priority=priority_of(jobs["pais"], jobs["descripcion"]),
         )
         .sort_values("score_jd", ascending=False, kind="stable")
         .loc[:, LEAD_COLUMNS]
@@ -346,13 +410,18 @@ def read_leads(path: Path) -> pd.DataFrame:
             ``LEAD_COLUMNS`` or has non-numeric scores.
     """
     leads = pd.read_csv(path, encoding=CSV_ENCODING)
-    missing = set(LEAD_COLUMNS) - {"manual_review", "vertical"} - set(leads.columns)
+    optional = {"manual_review", "vertical", "pais", "priority"}
+    missing = set(LEAD_COLUMNS) - optional - set(leads.columns)
     if missing:
         raise ValueError(f"{path.name}: missing columns {sorted(missing)}")
     if "manual_review" not in leads:
         leads["manual_review"] = MANUAL_REVIEW_PENDING
     if "vertical" not in leads:
         leads["vertical"] = vertical_of(leads["titulo"].astype(str))
+    if "pais" not in leads:
+        leads["pais"] = UNKNOWN
+    if "priority" not in leads:
+        leads["priority"] = priority_of(leads["pais"], leads["requisitos"])
     return leads.assign(score_jd=pd.to_numeric(leads["score_jd"]))
 
 

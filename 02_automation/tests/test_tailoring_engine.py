@@ -22,6 +22,8 @@ LEAD = pd.DataFrame(
         "fecha_scrapeo": ["2026-11-12"],
         "manual_review": ["PENDING"],
         "vertical": ["data_ai"],
+        "pais": ["Remote, LATAM"],
+        "priority": ["P1"],
     }
 )
 
@@ -47,7 +49,8 @@ def test_writes_one_markdown_with_the_three_blocks(tmp_path):
 
     written = tailor_all(LEAD, "CV de Ian", tmp_path, session)
 
-    out = tmp_path / "acme-nandu_data-engineer-senior.md"
+    # country and priority keep per-country variants of one role apart
+    out = tmp_path / "acme-nandu_data-engineer-senior_remote-latam_P1.md"
     assert written == [out]
     text = out.read_text(encoding="utf-8")
     for block in (

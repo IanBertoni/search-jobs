@@ -30,6 +30,7 @@ AITRAINER_WORK_FIELDS = [
     "last_seen",
     "pay_min",
     "pay_max",
+    "geographic_restrictions",
 ]
 # the feed keeps closed listings too; a platform is re-read every few days
 FRESH_DAYS = 14
@@ -91,6 +92,11 @@ def fetch_aitrainer_work(
                 ),
                 "min_salary": listings["pay_min"],
                 "max_salary": listings["pay_max"],
+                "pais": listings["geographic_restrictions"].map(
+                    lambda where: (
+                        ", ".join(where) if isinstance(where, list) and where else None
+                    )
+                ),
             }
         )
     )
@@ -126,6 +132,11 @@ def fetch_aitraining_jobs(
             ),
             "min_salary": pay[0],
             "max_salary": pay[1],
+            # "<p>Location: Remote, worldwide</p>"; about half the roles omit it
+            "pais": feed["description"]
+            .fillna("")
+            .str.extract(r"Location:\s*([^<]+)")[0]
+            .str.strip(),
         }
     )
     return feed_jobs(rows[_is_training(rows["titulo"])])

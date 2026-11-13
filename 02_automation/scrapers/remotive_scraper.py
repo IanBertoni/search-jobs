@@ -14,6 +14,7 @@ import requests
 
 from scrapers.getonboard_scraper import (
     TIMEOUT_S,
+    UNKNOWN,
     _text_or_unknown,
     clean_jobs,
     html_to_text,
@@ -21,7 +22,7 @@ from scrapers.getonboard_scraper import (
 
 REMOTIVE_FEED = "https://remotive.com/remote-jobs/feed/artificial-intelligence"
 PUB_DATE_FORMAT = "%a, %d %b %Y %H:%M:%S %Z"  # RFC 822: "Thu, 22 Oct 2026 18:40:19 GMT"
-RSS_TAGS = ["title", "company", "link", "pubDate", "description"]
+RSS_TAGS = ["title", "company", "link", "pubDate", "description", "location"]
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,9 @@ def feed_jobs(rows: pd.DataFrame) -> pd.DataFrame:
     """Shape feed rows like ``clean_jobs`` output.
 
     Args:
-        rows: Columns titulo, empresa, link, description (HTML or text) and
-            fecha (aware datetime); min_salary and max_salary are optional.
+        rows: Columns titulo, empresa, link, description (HTML or text),
+            fecha (aware datetime) and pais (None if unknown); min_salary and
+            max_salary are optional.
     """
     rows = rows.reset_index(drop=True)
     description = rows["description"].map(html_to_text)
@@ -67,6 +69,7 @@ def feed_jobs(rows: pd.DataFrame) -> pd.DataFrame:
             fecha=rows["fecha"],
             min_salary=rows.get("min_salary"),
             max_salary=rows.get("max_salary"),
+            pais=rows["pais"].fillna(UNKNOWN),
         )
     )
 
@@ -94,6 +97,7 @@ def fetch_remotive(session: requests.Session | None = None) -> pd.DataFrame | No
                 "fecha": pd.to_datetime(
                     feed["pubDate"], format=PUB_DATE_FORMAT, utc=True, errors="coerce"
                 ),
+                "pais": feed["location"],
             }
         )
     )
