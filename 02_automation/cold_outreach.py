@@ -32,21 +32,28 @@ MAX_TOKENS = 4096  # gpt-oss reasons before answering
 MAX_YEARS = 5  # "5+ years" or more counts as senior
 logger = logging.getLogger(__name__)
 
-TECH = whole_words(["python", "data", "ai", "rust", "software"])
-CLOSED = whole_words(["no longer", "closed", "filled"])
-REJECT = whole_words(
-    [
-        "us only",
-        "us-only",
-        "us citizens",
-        "h1b",
-        "h-1b",
-        "senior",
-        "lead",
-        "staff",
-        "principal",
-    ]
+# at least one of these: the roles Ian actually fits
+TARGET_ROLE = whole_words(
+    ["python", "fastapi", "rag", "backend", "full-stack", "full stack", "llm",
+     "data engineer", "software engineer", "ai engineer"]
 )
+CLOSED = whole_words(["no longer", "closed", "filled"])
+# dealbreakers: dropped before Groq, no email is worth these
+VISA = whole_words(
+    ["us only", "us-only", "us citizen", "us citizens", "us citizenship",
+     "u.s. citizen", "u.s. citizenship", "green card", "h1b", "h-1b",
+     "defense eligibility", "u.s. defense"]
+)
+ON_SITE = whole_words(
+    ["uk", "london", "europe", "eu", "ireland", "germany", "hybrid"]
+)
+GLOBAL = whole_words(["worldwide", "global", "latam"])  # lifts ON_SITE
+PROFILE = whole_words(
+    ["phd", "master's", "master’s", "research scientist", "research engineer",
+     "deep learning", "pytorch", "cuda", "transformers",
+     "senior", "lead", "staff", "principal", "director"]
+)
+OFF_TITLE = whole_words(["designer", "sales", "marketing", "product manager"])
 YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
 REMOTE = whole_words(["remote", "worldwide", "latam"])
 LATAM = whole_words(
@@ -73,8 +80,9 @@ Rules:
   "been following PostHog's open-source product analytics approach").
 - The Role field may be wrong ("Full-Time", "Remote", a city): if so, infer the
   real role from the post text.
-- If the role is not technical (designer, sales, marketing, recruiter...), reply
-  with exactly SKIP and nothing else.
+- Reply with exactly SKIP and nothing else (no email) if the post mentions visa
+  or citizenship restrictions, asks for PyTorch, Deep Learning or a PhD, or if
+  the role is NOT software/application development with Python.
 - Include the GitHub: github.com/IanBertoni
 - Say he's in Argentina, fully remote. End asking for a quick chat.
 Example tone: "Hey jane, saw you are hiring for a Data Engineer. I don't have a CS
@@ -96,9 +104,14 @@ def latest_hiring_thread(session: requests.Session) -> str:
     raise LookupError("no 'Who is hiring?' thread in the latest whoishiring stories")
 
 
-def _is_senior(text: str) -> bool:
+def _dealbreaker(text: str) -> bool:
     years = [int(n) for n in YEARS.findall(text)]
-    return bool(REJECT.search(text)) or any(n >= MAX_YEARS for n in years)
+    on_site = ON_SITE.search(text) and not GLOBAL.search(text)
+    off_title = OFF_TITLE.search(text.splitlines()[0])
+    return bool(
+        VISA.search(text) or PROFILE.search(text) or on_site or off_title
+        or any(n >= MAX_YEARS for n in years)
+    )
 
 
 def _offer(comment: dict) -> dict | None:
@@ -108,8 +121,8 @@ def _offer(comment: dict) -> dict | None:
         not text
         or text.startswith("UPDATE")  # "UPDATE: no longer hiring" banners
         or CLOSED.search(text)
-        or not (REMOTE.search(text) and TECH.search(text))
-        or _is_senior(text)
+        or not (REMOTE.search(text) and TARGET_ROLE.search(text))
+        or _dealbreaker(text)
     ):
         return None
     # HN convention: first line is "Company | Role | Location | ..."
