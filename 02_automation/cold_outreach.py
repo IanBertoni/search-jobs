@@ -185,7 +185,7 @@ def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
             logger.error("%s | %s: %s", offer["empresa"], offer["rol"], error)
             continue
         if email == "SKIP":
-            logger.info("%s | %s: rol no técnico, SKIP", offer["empresa"], offer["rol"])
+            logger.info("%s | %s: SKIP de Groq (rol o restricción)", offer["empresa"], offer["rol"])
             continue
         # the model lowercases it to sound casual; the company name must stay right
         email = DANAGRO.sub("DanAgro Precision", email)
