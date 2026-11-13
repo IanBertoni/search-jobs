@@ -50,3 +50,26 @@ def test_extract_requirements_takes_first_lines_as_must_haves():
 
 def test_extract_requirements_empty_text():
     assert extract_requirements("") == []
+
+
+def test_extract_requirements_skips_logistics_lines():
+    # micro1 "AI Trainer (SWE)": pay/location/hours bullets came first
+    text = (
+        "Pay: $60–$120/hour equivalent, paid per accepted task\n"
+        "Location: Global, fully remote\n"
+        "Job Type: Contractor\n"
+        "Time Commitment: 15+ hours per week\n"
+        "Rate: 45 USD per hour\n"
+        "Hybrid or on-site in Madrid\n"
+        "Part-time, 6 months\n"
+        "Freelance engagement\n"
+        "Strong Python and software engineering skills\n"
+        "Experience reviewing code and writing unit tests\n"
+        "Accurate written English\n"
+    )
+
+    assert extract_requirements(text) == [
+        "Strong Python and software engineering skills",
+        "Experience reviewing code and writing unit tests",
+        "Accurate written English",  # "accurate" is not the word "rate"
+    ]
