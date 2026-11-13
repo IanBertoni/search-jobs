@@ -22,7 +22,7 @@ from config import (
     setup_logging,
 )
 from scrapers.getonboard_scraper import html_to_text, whole_words
-
+# Base URL for API requests
 ALGOLIA_URL = "https://hn.algolia.com/api/v1"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id="
 OUTPUT = TRACKING_DIR / "outreach" / "founders_outreach.md"
@@ -32,26 +32,59 @@ MAX_TOKENS = 4096  # gpt-oss reasons before answering
 MAX_YEARS = 5  # "5+ years" or more counts as senior
 logger = logging.getLogger(__name__)
 
+# ===== EVALUATION RULES: hard filters, applied in _offer() before any LLM call =====
 # at least one of these: the roles Ian actually fits
 TARGET_ROLE = whole_words(
-    ["python", "fastapi", "rag", "backend", "full-stack", "full stack", "llm",
-     "data engineer", "software engineer", "ai engineer"]
+    [
+        "python",
+        "fastapi",
+        "rag",
+        "backend",
+        "full-stack",
+        "full stack",
+        "llm",
+        "data engineer",
+        "software engineer",
+        "ai engineer",
+    ]
 )
 CLOSED = whole_words(["no longer", "closed", "filled"])
 # dealbreakers: dropped before Groq, no email is worth these
 VISA = whole_words(
-    ["us only", "us-only", "us citizen", "us citizens", "us citizenship",
-     "u.s. citizen", "u.s. citizenship", "green card", "h1b", "h-1b",
-     "defense eligibility", "u.s. defense"]
+    [
+        "us only",
+        "us-only",
+        "us citizen",
+        "us citizens",
+        "us citizenship",
+        "u.s. citizen",
+        "u.s. citizenship",
+        "green card",
+        "h1b",
+        "h-1b",
+        "defense eligibility",
+        "u.s. defense",
+    ]
 )
-ON_SITE = whole_words(
-    ["uk", "london", "europe", "eu", "ireland", "germany", "hybrid"]
-)
+ON_SITE = whole_words(["uk", "london", "europe", "eu", "ireland", "germany", "hybrid"])
 GLOBAL = whole_words(["worldwide", "global", "latam"])  # lifts ON_SITE
 PROFILE = whole_words(
-    ["phd", "master's", "master’s", "research scientist", "research engineer",
-     "deep learning", "pytorch", "cuda", "transformers",
-     "senior", "lead", "staff", "principal", "director"]
+    [
+        "phd",
+        "master's",
+        "master’s",
+        "research scientist",
+        "research engineer",
+        "deep learning",
+        "pytorch",
+        "cuda",
+        "transformers",
+        "senior",
+        "lead",
+        "staff",
+        "principal",
+        "director",
+    ]
 )
 OFF_TITLE = whole_words(["designer", "sales", "marketing", "product manager"])
 YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
@@ -90,6 +123,9 @@ degree, but I built a production RAG pipeline... Here is my GitHub:
 github.com/IanBertoni. I'm in Argentina, fully remote. Open to a quick chat?\""""
 
 
+# ===== STEP 1 - OBSERVE: read the latest HN "Who is hiring?" thread =====
+
+
 def latest_hiring_thread(session: requests.Session) -> str:
     """Id of the newest "Ask HN: Who is hiring?" (whoishiring also posts others)."""
     response = session.get(
@@ -104,12 +140,18 @@ def latest_hiring_thread(session: requests.Session) -> str:
     raise LookupError("no 'Who is hiring?' thread in the latest whoishiring stories")
 
 
+# ===== STEP 2 - EVALUATE: deterministic filter, a rejected post never reaches Groq =====
+
+
 def _dealbreaker(text: str) -> bool:
     years = [int(n) for n in YEARS.findall(text)]
     on_site = ON_SITE.search(text) and not GLOBAL.search(text)
     off_title = OFF_TITLE.search(text.splitlines()[0])
     return bool(
-        VISA.search(text) or PROFILE.search(text) or on_site or off_title
+        VISA.search(text)
+        or PROFILE.search(text)
+        or on_site
+        or off_title
         or any(n >= MAX_YEARS for n in years)
     )
 
@@ -152,6 +194,9 @@ def fetch_offers(session: requests.Session) -> list[dict]:
     return parse_offers(response.json())
 
 
+# ===== STEP 3 - ACT: the Groq LLM call that drafts the email =====
+
+
 def ask_groq(offer: dict, session: requests.Session) -> str:
     post = (
         f"HN username: {offer['autor']}\nCompany: {offer['empresa']}\n"
@@ -175,6 +220,9 @@ def ask_groq(offer: dict, session: requests.Session) -> str:
     return response.json()["choices"][0]["message"]["content"].strip()
 
 
+# ===== STEP 4 - GUARDRAILS on the LLM output: SKIP, name fix, AI-tone flag =====
+
+
 def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
     """One Groq call per offer; a failed offer is logged and skipped."""
     drafts = []
@@ -184,10 +232,15 @@ def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
         except (requests.RequestException, KeyError, TypeError, ValueError) as error:
             logger.error("%s | %s: %s", offer["empresa"], offer["rol"], error)
             continue
+        # guardrail 1: the LLM itself vetoes the offer (visa, PhD, non-dev role)
         if email == "SKIP":
-            logger.info("%s | %s: SKIP de Groq (rol o restricción)", offer["empresa"], offer["rol"])
+            logger.info(
+                "%s | %s: SKIP de Groq (rol o restricción)",
+                offer["empresa"],
+                offer["rol"],
+            )
             continue
-        # the model lowercases it to sound casual; the company name must stay right
+        # guardrail 2: the model lowercases it to sound casual; the company name must stay right
         email = DANAGRO.sub("DanAgro Precision", email)
         drafts.append({**offer, "email": email})
     return drafts
@@ -196,7 +249,7 @@ def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
 def render(drafts: list[dict]) -> str:
     blocks = ["# Cold outreach a fundadores (HN Who is hiring)\n"]
     for d in drafts:
-        # the prompt forbids it, but the model may still slip into AI tone
+        # guardrail 3: the prompt forbids it, but the model may still slip into AI tone
         flag = "**REVISAR: suena a IA**\n\n" if AI_TONE.search(d["email"]) else ""
         blocks.append(
             f"## {d['empresa']} — {d['rol']}\n\n"
