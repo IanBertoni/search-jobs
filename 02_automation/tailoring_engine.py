@@ -93,8 +93,11 @@ def _validate_pitch(pitch: str, cv_text: str) -> str | None:
     return None
 
 
-def slug(text: str) -> str:
-    ascii_text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
+def slug(text: object) -> str:
+    # str(): itertuples() fields are pandas Scalars (a NaN cell would crash normalize)
+    ascii_text = (
+        unicodedata.normalize("NFKD", str(text)).encode("ascii", "ignore").decode()
+    )
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
 
 
