@@ -78,6 +78,44 @@ def test_parse_needs_remote_and_a_tech_keyword(text):
     assert parse_offers(comment(text)) == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # PostHog
+        "PostHog | AI Engineer | Remote or Hybrid UK<p>Python, PyTorch, maths.",
+        # Lyra
+        "Lyra | Applied AI Engineer | Remote (US)<p>Python. US Citizenship Required.",
+        # Juro
+        "Juro | AI Engineer | London, UK or Remote<p>Python, LLM agents.",
+        "Kraus | Software Engineer | Remote<p>Python. Must meet U.S. defense eligibility.",
+        "Co | Software Engineer | Remote<p>Python, Deep Learning.",
+        "Co | AI Research Engineer | Remote<p>Python, LLM.",
+        "Co | Software Engineer | Remote<p>Python. Director of platform.",
+        "Co | Marketing Engineer | Remote<p>Python scripts.",
+    ],
+)
+def test_parse_drops_dealbreakers_without_calling_groq(text):
+    assert parse_offers(comment(text)) == []
+
+
+def test_parse_keeps_full_stack_python_remote_latam():
+    text = "Co | Full-Stack Python Engineer | Remote LATAM<p>We use FastAPI."
+
+    assert [o["remoto"] for o in parse_offers(comment(text))] == ["Remote/LATAM"]
+
+
+def test_location_dealbreaker_is_lifted_by_worldwide():
+    text = "Co | Backend Engineer | Remote Worldwide, office in London<p>Python."
+
+    assert len(parse_offers(comment(text))) == 1
+
+
+def test_parse_needs_a_target_role_keyword():
+    text = "Co | Frontend Developer | Remote<p>React, data viz, AI features."
+
+    assert parse_offers(comment(text)) == []
+
+
 @pytest.mark.parametrize("where", ["Remote", "Worldwide", "LATAM"])
 def test_parse_accepts_any_remote_wording(where):
     assert len(parse_offers(comment(f"Co | Software Engineer | {where}"))) == 1
