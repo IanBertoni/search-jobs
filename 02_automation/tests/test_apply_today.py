@@ -30,7 +30,14 @@ def test_select_top_filters_by_score_best_first():
 
 
 def test_select_top_shows_score_six_first_then_five_and_four():
-    leads = pd.DataFrame({"titulo": ["Data Engineer"] * 5, "score_jd": [4, 6, 3, 5, 6]})
+    leads = pd.DataFrame(
+        {
+            "titulo": ["Data Engineer"] * 5,
+            "score_jd": [4, 6, 3, 5, 6],
+            "vertical": ["data_ai"] * 5,
+            "requisitos": [""] * 5,
+        }
+    )
 
     assert list(select_top(leads)["score_jd"]) == [6, 6, 5, 4]
 
@@ -45,6 +52,37 @@ def test_render_markdown_lists_each_offer():
     assert "Ghost Analyst" not in md
     assert "- Revisión manual: PENDING (careers page" in md
     assert "- Vertical: data_ai" in md
+
+
+def test_select_top_lowers_the_bar_to_three_for_ai_training():
+    leads = pd.DataFrame(
+        {
+            "titulo": ["AI Coding Evaluator", "Data Engineer"],
+            "score_jd": [3, 3],
+            "vertical": ["ai_training", "data_ai"],
+            "requisitos": ["", ""],
+        }
+    )
+
+    assert list(select_top(leads)["titulo"]) == ["AI Coding Evaluator"]
+
+
+@pytest.mark.parametrize(
+    ("titulo", "requisitos", "matches"),
+    [
+        ("Software Engineer", "Build LLM agents | Python", True),
+        ("Backend Engineer", "Design data pipelines on GCP", True),
+        ("Software Engineer", "RAG over legal documents", True),
+        ("Backend Engineer", "Java | Spring Boot", False),
+        ("Frontend Engineer", "LLM chat UI", False),
+    ],
+)
+def test_broad_engineering_titles_need_ai_in_the_requirements(
+    titulo, requisitos, matches
+):
+    lead = pd.DataFrame({"titulo": [titulo], "requisitos": [requisitos]})
+
+    assert matches_profile(lead).iloc[0] == matches
 
 
 def test_select_top_drops_offers_outside_data_ai_profile():

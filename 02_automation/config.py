@@ -39,6 +39,20 @@ PROFILE_KEYWORDS = _env(
 BLACKLIST_KEYWORDS = _env(
     "BLACKLIST_KEYWORDS", "sales,docente,soporte,support", _keywords
 )
+# a posting without seniority or level keyword is kept if it names this stack
+STACK_KEYWORDS = _env(
+    "STACK_KEYWORDS", "python,fastapi,llm,rag,sql,postgresql", _keywords
+)
+# generic engineering titles count as data_ai when requisitos mention AI context
+BROAD_TITLE_KEYWORDS = _env(
+    "BROAD_TITLE_KEYWORDS",
+    "software engineer,backend engineer,python developer",
+    _keywords,
+)
+AI_CONTEXT_KEYWORDS = _env(
+    "AI_CONTEXT_KEYWORDS", "llm,rag,data pipeline,data pipelines,ai", _keywords
+)
+AI_TRAINING_MIN_SCORE = _env("AI_TRAINING_MIN_SCORE", "3", int)
 # second vertical: AI training / evaluation roles (Anyone AI, Mindrift...)
 AI_TRAINING_KEYWORDS = _env(
     "AI_TRAINING_KEYWORDS",
