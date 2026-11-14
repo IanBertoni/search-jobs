@@ -7,3 +7,17 @@ venv/
 .ruff_cache/
 .coverage
 03_tracking/logs/
+
+# secrets: never commit; .env.example is the empty template
+.env
+.env.*
+!.env.example
+**/.env
+# personal data: job applications, leads, tailored CVs
+03_tracking/
+01_assets/cv/*.pdf
+cv-*.html
+# leak scan / filter-repo leftovers
+leak_report.json
+replacements.txt
+*backup*.md
