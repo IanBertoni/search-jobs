@@ -2,9 +2,22 @@
 
 Sources (public and allowed by robots.txt / terms):
 - Reddit official API (OAuth app-only token): anonymous JSON answers 403.
-  Needs REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET (a free "script" app at
-  reddit.com/prefs/apps); without them Reddit is skipped.
+  Without REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET Reddit is skipped.
+- GitHub issue search (public API, no token): open issues labelled bounty,
+  help wanted or freelance in Python/Rust repos that mention a payment.
 - HN monthly "Freelancer? Seeking freelancer?": SEEKING FREELANCER posts.
+
+How to set up Reddit (one time, free):
+  1. Log in to Reddit and open https://www.reddit.com/prefs/apps
+  2. Click "create another app..." (or "are you a developer? create an app...").
+  3. name: freelance-client-finder; type: choose "script";
+     redirect uri: http://localhost:8080 (required by the form, never used).
+  4. Click "create app". The client id is the short string right under
+     "personal use script"; the client secret is the "secret" field.
+  5. Paste both in 02_automation/.env (never in .env.example, it is committed):
+       REDDIT_CLIENT_ID=<the string under "personal use script">
+       REDDIT_CLIENT_SECRET=<the secret>
+  6. Run again: python freelance_client_finder.py
 Skipped on purpose: Indie Hackers (Cloudflare challenge, /api/ disallowed,
 AI crawlers blocked in robots.txt) and X (search needs the paid API).
 Only drafts the pitch: sending stays manual (see CLAUDE.md).
@@ -47,6 +60,16 @@ REDDIT_QUERY = (
     '"hiring" OR "looking for a dev" OR "looking for a developer"'
     ' OR "need help with python"'
 )
+GITHUB_SEARCH = "https://api.github.com/search/issues"
+# one query per label: OR-ing them lets the ~90k "help wanted" issues bury bounties
+GITHUB_LABELS = ["bounty", "help wanted", "freelance"]
+GITHUB_LANGUAGES = ["python", "rust"]
+# no token: 10 searches/minute, so 6 queries with a delay stay under it
+GITHUB_DELAY_S = 7
+# the label alone doesn't count: the issue text must mention the payment
+PAYMENT = re.compile(
+    r"\$\s?\d[\d,.]*k?|\b\d[\d,.]*\s?(?:usd|usdc)\b|\bbounty\b", re.IGNORECASE
+)
 # posted by a regular user now, not by whoishiring: found by title
 HN_THREAD = "Ask HN: Freelancer? Seeking freelancer?"
 SEEKING_FREELANCER = re.compile(r"^\s*seeking freelancer", re.IGNORECASE)
@@ -74,15 +97,16 @@ DEALBREAKER = whole_words(["senior", "us only", "us-only", "usa only", "us based
 YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
 MAX_YEARS = 5
 
-PITCH_PROMPT = """You write a short business pitch from Ian, a freelance Python
-developer in Argentina, to someone who posted that they need a developer.
-Reply with ONLY the message, no subject, in the language of the post.
-Follow this structure, filling [X] with the concrete thing they need, in a few words:
-"Hola, vi que necesitan [X]. Yo construyo exactamente eso usando Python y RAG.
-Ya tengo sistemas en producción. Te dejo mi GitHub (github.com/IanBertoni).
-¿Te parece si hablamos 10 minutos?"
-Business tone, not a CV, no bullet points, max 4 lines. Invent nothing about Ian.
-Reply with exactly SKIP if the post is not someone hiring for software work."""
+PITCH_PROMPT = """You write a short business pitch from Ian, a freelance developer
+in Argentina (stack: Python, FastAPI, RAG and Rust), to someone who posted a
+paid gig or a GitHub issue with a bounty. Reply with ONLY the message, in English.
+Follow this structure, filling [problem] with the concrete thing they need:
+"I saw your post/issue looking for [problem]. I build production systems with
+Python, FastAPI, and RAG. I can solve this for you. Here is my GitHub:
+github.com/IanBertoni."
+Always add one short line saying he also writes Rust, tied to their problem if it fits.
+Business tone, not a CV, no bullet points, max 5 lines. Invent nothing about Ian.
+Reply with exactly SKIP if it is not paid software work."""
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +168,49 @@ def hn_clients(thread: dict) -> list[dict]:
                 )
             )
     return clients
+
+
+def github_queries() -> list[str]:
+    return [
+        f'is:issue is:open label:"{label}" language:{language}'
+        if " " in label
+        else f"is:issue is:open label:{label} language:{language}"
+        for label in GITHUB_LABELS
+        for language in GITHUB_LANGUAGES
+    ]
+
+
+def github_clients(payload: dict) -> list[dict]:
+    """Issues from a search payload that mention a payment; the rest is unpaid work."""
+    clients = []
+    for issue in payload.get("items") or []:
+        title = issue.get("title") or ""
+        text = f"{title}\n{issue.get('body') or ''}"
+        payment = PAYMENT.search(text)
+        if not payment:
+            continue
+        repo = (issue.get("repository_url") or "").removeprefix(
+            "https://api.github.com/repos/"
+        )
+        client = _client("GitHub bounty", title, repo, issue.get("html_url"), text)
+        clients.append({**client, "pago": payment.group(0)})
+    return clients
+
+
+def fetch_github(session: requests.Session) -> list[dict]:
+    clients = []
+    for query in github_queries():
+        response = session.get(
+            GITHUB_SEARCH,
+            params={"q": query, "sort": "created", "per_page": 100},
+            headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT},
+            timeout=TIMEOUT_S,
+        )
+        response.raise_for_status()
+        clients += github_clients(response.json())
+        time.sleep(GITHUB_DELAY_S)
+    # the same issue can carry two of the labels
+    return list({c["link"]: c for c in clients}.values())
 
 
 def reddit_token(session: requests.Session, client_id: str, secret: str) -> str | None:
@@ -225,11 +292,12 @@ def write_pitches(clients: list[dict], session: requests.Session) -> list[dict]:
 
 
 def render(clients: list[dict]) -> str:
-    blocks = ["# Freelance clients (Reddit, HN Seeking freelancer)\n"]
+    blocks = ["# Freelance clients (Reddit, GitHub bounties, HN Seeking freelancer)\n"]
     for c in clients:
+        payment = f"- Pago: {c['pago']}\n" if c.get("pago") else ""
         blocks.append(
             f"## {c['titulo']}\n\n- Fuente: {c['fuente']}\n- Autor: {c['autor']}\n"
-            f"- Link: {c['link']}\n\n```text\n{c['pitch']}\n```\n"
+            f"- Link: {c['link']}\n{payment}\n```text\n{c['pitch']}\n```\n"
         )
     return "\n".join(blocks)
 
@@ -242,7 +310,8 @@ def main() -> None:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
     clients = []
-    for name, fetch in (("reddit", fetch_reddit), ("hn", fetch_hn)):
+    sources = (("reddit", fetch_reddit), ("github", fetch_github), ("hn", fetch_hn))
+    for name, fetch in sources:
         try:
             clients += fetch(session)
         except (requests.RequestException, LookupError, KeyError, ValueError) as error:

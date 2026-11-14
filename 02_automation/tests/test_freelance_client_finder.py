@@ -5,6 +5,9 @@ from unittest.mock import MagicMock
 import pytest
 
 from freelance_client_finder import (
+    PITCH_PROMPT,
+    github_clients,
+    github_queries,
     hn_clients,
     latest_freelancer_thread,
     reddit_clients,
@@ -15,6 +18,7 @@ from freelance_client_finder import (
 
 FIXTURES = Path(__file__).parent / "fixtures"
 REDDIT = json.loads((FIXTURES / "reddit_search.json").read_text("utf-8"))
+GITHUB = json.loads((FIXTURES / "github_issues_search.json").read_text("utf-8"))
 PITCH = "Hola, vi que necesitan un chatbot RAG. github.com/IanBertoni ¿10 minutos?"
 
 
@@ -153,3 +157,47 @@ def test_latest_freelancer_thread_takes_the_newest_matching_title():
     session.get.return_value = MagicMock(json=MagicMock(return_value=hits))
 
     assert latest_freelancer_thread(session) == "50338744"
+
+
+def test_github_keeps_only_issues_that_mention_a_payment():
+    clients = github_clients(GITHUB)
+
+    assert [c["link"] for c in clients] == [
+        "https://github.com/acme/ragkit/issues/12",
+        "https://github.com/ferris/fastparse/issues/3",
+    ]
+    assert clients[0]["fuente"] == "GitHub bounty"
+    assert clients[0]["autor"] == "acme/ragkit"
+    assert clients[0]["titulo"] == "Add hybrid search to the retriever"
+    assert clients[0]["pago"] == "$250"
+    assert clients[1]["pago"] == "100 USD"
+
+
+def test_github_malformed_payload_gives_no_clients():
+    assert github_clients({"message": "API rate limit exceeded"}) == []
+
+
+def test_github_queries_cover_every_label_and_language():
+    queries = github_queries()
+
+    assert len(queries) == 6
+    assert 'is:issue is:open label:"help wanted" language:rust' in queries
+    assert "is:issue is:open label:bounty language:python" in queries
+
+
+def test_pitch_prompt_names_the_whole_stack_and_the_github():
+    for word in (
+        "RAG",
+        "FastAPI",
+        "Rust",
+        "Python",
+        "github.com/IanBertoni",
+        "I saw your post/issue looking for",
+    ):
+        assert word in PITCH_PROMPT
+
+
+def test_render_shows_the_payment_when_known():
+    client = {**github_clients(GITHUB)[0], "pitch": PITCH}
+
+    assert "- Pago: $250" in render([client])
