@@ -21,3 +21,5 @@ cv-*.html
 leak_report.json
 replacements.txt
 *backup*.md
+# personal interview prep
+*guion_video*
