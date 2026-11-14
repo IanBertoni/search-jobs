@@ -201,3 +201,32 @@ def test_render_shows_the_payment_when_known():
     client = {**github_clients(GITHUB)[0], "pitch": PITCH}
 
     assert "- Pago: $250" in render([client])
+
+
+def issue(title: str, body: str = "", repo: str = "o/r", n: int = 1) -> dict:
+    return {
+        "html_url": f"https://github.com/{repo}/issues/{n}",
+        "repository_url": f"https://api.github.com/repos/{repo}",
+        "title": title,
+        "body": body,
+    }
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["[$2 site credit] Add an example", "Bounty: fix the parser", "Costs 10 USDC"],
+)
+def test_github_drops_tiny_or_amountless_payments(title):
+    assert github_clients({"items": [issue(title)]}) == []
+
+
+def test_github_reads_thousands_shorthand():
+    assert (
+        github_clients({"items": [issue("Port to Rust ($1.5k)")]})[0]["pago"] == "$1.5k"
+    )
+
+
+def test_github_caps_issues_per_repo():
+    items = [issue(f"Task {n} $100", n=n) for n in range(5)]
+
+    assert len(github_clients({"items": items})) == 2
