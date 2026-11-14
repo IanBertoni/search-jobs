@@ -9,6 +9,8 @@ from cold_outreach import (
     latest_hiring_thread,
     parse_offers,
     render,
+    render_freelance,
+    split_by_type,
     write_emails,
 )
 
@@ -193,3 +195,48 @@ def test_render_flags_emails_that_sound_like_ai():
     assert "https://news.ycombinator.com/item?id=101" in text
     assert EMAIL in text
     assert text.count("REVISAR") == 1
+
+
+@pytest.mark.parametrize(
+    "kind", ["Contract", "Contractor", "Freelance", "Part-time", "part time"]
+)
+def test_parse_marks_contract_posts_as_freelance(kind):
+    text = f"Co | Data Engineer | Remote | {kind}<p>Python."
+
+    assert parse_offers(comment(text))[0]["tipo"] == "freelance"
+
+
+def test_parse_keeps_mixed_full_time_and_contract_as_full_time():
+    text = "Co | Data Engineer | Remote | Full-time, Contract<p>Python."
+
+    assert parse_offers(comment(text))[0]["tipo"] == "full-time"
+
+
+def test_parse_reads_budget_and_hours_when_the_post_says_them():
+    text = "Co | Python Dev | Remote | Contract<p>$60-80/hr, 20 hours/week."
+
+    assert parse_offers(comment(text))[0]["presupuesto"] == "$60-80/hr, 20 hours/week"
+
+
+def test_contract_offers_never_reach_groq():
+    full = parse_offers(comment("Co | Data Engineer | Remote<p>Python."))
+    gig = parse_offers(comment("Gig | Data Engineer | Remote | Freelance<p>Python."))
+    session = json_session(groq_reply())
+
+    emails, leads = split_by_type(full + gig)
+    drafts = write_emails(emails, session)
+
+    assert session.post.call_count == 1
+    assert [d["empresa"] for d in drafts] == ["Co"]
+    assert [lead["empresa"] for lead in leads] == ["Gig"]
+
+
+def test_render_freelance_puts_remote_or_worldwide_first_in_a_table():
+    latam = parse_offers(comment("Latam | Data Engineer | LATAM | Contract<p>Py."))
+    world = parse_offers(comment("World | Data Engineer | Worldwide | Contract<p>Py."))
+
+    text = render_freelance(latam + world)
+
+    assert "| Empresa | Rol | Link | Presupuesto/Horas |" in text
+    assert text.index("World") < text.index("Latam")
+    assert "| ? |" in text  # no budget in the post
