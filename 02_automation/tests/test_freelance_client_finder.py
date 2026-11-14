@@ -10,10 +10,13 @@ from freelance_client_finder import (
     GITHUB_SEARCH,
     PITCH_PROMPT,
     fetch_github,
+    getonboard_clients,
     github_clients,
     github_queries,
     hn_clients,
     latest_freelancer_thread,
+    radar_clients,
+    remotive_clients,
     render,
     repo_ok,
     write_pitches,
@@ -238,11 +241,11 @@ def test_write_pitches_skips_a_client_when_groq_fails():
     assert [p["autor"] for p in write_pitches(clients, session)] == ["ferris/fastparse"]
 
 
-def test_pitch_prompt_only_allows_technologies_named_in_the_issue():
-    assert "I can solve this with [" in PITCH_PROMPT
+def test_pitch_prompt_offers_contract_work_with_the_stack_and_github():
+    assert "3 lines" in PITCH_PROMPT
+    assert "contractor" in PITCH_PROMPT
+    assert "Python, FastAPI and RAG" in PITCH_PROMPT
     assert "github.com/IanBertoni" in PITCH_PROMPT
-    assert "ONLY technologies that appear in the post/issue" in PITCH_PROMPT
-    assert "Rust" not in PITCH_PROMPT.split("Never")[0]  # no fixed stack line
 
 
 def test_render_lists_each_client_with_link_payment_and_pitch():
@@ -252,5 +255,81 @@ def test_render_lists_each_client_with_link_payment_and_pitch():
 
     assert "## Add hybrid search to the retriever" in text
     assert "https://github.com/acme/ragkit/issues/12" in text
+    assert "- Empresa/Fuente: acme/ragkit (GitHub bounty)" in text
     assert "- Pago: $250" in text
     assert PITCH in text
+
+
+def test_hn_drops_lead_roles():
+    assert hn_clients(thread("SEEKING FREELANCER | Remote<p>Lead Python dev.")) == []
+
+
+def test_remotive_keeps_wanted_contract_and_freelance_jobs_only():
+    xml = (FIXTURES / "remotive_software_feed.xml").read_bytes()
+
+    clients = remotive_clients(xml)
+
+    assert [c["autor"] for c in clients] == ["Acme Ops"]
+    assert clients[0]["fuente"] == "Remotive"
+    assert clients[0]["titulo"] == "Python Automation Developer"
+    assert clients[0]["link"].startswith("https://remotive.com/remote-jobs/")
+    assert "scrapers" in clients[0]["texto"]
+
+
+def test_remotive_broken_feed_gives_no_clients():
+    assert remotive_clients(b"<rss><channel>") == []
+
+
+def gob_job(title: str, modality: int = 3, remote: bool = True, n: int = 1) -> dict:
+    return {
+        "id": f"job-{n}",
+        "links": {"public_url": f"https://www.getonbrd.com/jobs/job-{n}"},
+        "attributes": {
+            "title": title,
+            "description": "<p>Python and LLM automation.</p>",
+            "remote": remote,
+            "modality": {"data": {"id": modality, "type": "modality"}},
+            "company": {"data": {"attributes": {"name": f"Co{n}"}}},
+        },
+    }
+
+
+def test_getonboard_keeps_remote_freelance_jobs_only():
+    jobs = [
+        gob_job("AI Automation Engineer - Contract", n=1),
+        gob_job("Python Developer", modality=1, n=2),  # full time
+        gob_job("Python Developer", remote=False, n=3),
+        gob_job("Lead Python Developer", n=4),
+        gob_job("AI Automation Engineer - Contract", n=1),  # seen in two queries
+    ]
+
+    clients = getonboard_clients(jobs)
+
+    assert [c["link"] for c in clients] == ["https://www.getonbrd.com/jobs/job-1"]
+    assert clients[0]["autor"] == "Co1"
+    assert clients[0]["fuente"] == "Get on Board"
+
+
+def test_radar_clients_maps_leads_and_drops_senior_titles():
+    leads = [
+        {
+            "fuente": "Remote OK",
+            "titulo": "Python Contractor",
+            "empresa": "A",
+            "tarifa": "$50/hr",
+            "link": "https://remoteok.com/1",
+        },
+        {
+            "fuente": "WWR",
+            "titulo": "Senior Data Engineer",
+            "empresa": "B",
+            "tarifa": "?",
+            "link": "https://weworkremotely.com/2",
+        },
+    ]
+
+    clients = radar_clients(leads)
+
+    assert [c["link"] for c in clients] == ["https://remoteok.com/1"]
+    assert clients[0]["pago"] == "$50/hr"
+    assert clients[0]["autor"] == "A"

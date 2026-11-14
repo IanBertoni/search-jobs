@@ -3,7 +3,7 @@
 Only drafts the text: sending stays manual (see CLAUDE.md), no smtplib here.
 Contract/freelance posts skip Groq: you apply inside the platform, no email needed.
 Output: 03_tracking/outreach/founders_outreach.md (full-time emails)
-        03_tracking/freelance_leads.md (contract/freelance table)
+        03_tracking/hn_contract_leads.md (contract/freelance table)
 Usage (from 02_automation/): python cold_outreach.py [--top N] [--verbose]
 """
 
@@ -29,7 +29,7 @@ from scrapers.getonboard_scraper import html_to_text, whole_words
 ALGOLIA_URL = "https://hn.algolia.com/api/v1"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id="
 OUTPUT = TRACKING_DIR / "outreach" / "founders_outreach.md"
-FREELANCE_OUTPUT = TRACKING_DIR / "freelance_leads.md"
+FREELANCE_OUTPUT = TRACKING_DIR / "hn_contract_leads.md"
 TIMEOUT_S = 60
 TOP_N = 20
 MAX_TOKENS = 4096  # gpt-oss reasons before answering
