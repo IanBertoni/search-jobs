@@ -1,26 +1,18 @@
-"""Freelance client finder: people hiring for Python/RAG/automation gigs -> pitches.
+"""Freelance client finder: paid Python/Rust gigs and bounties -> pitches.
 
 Sources (public and allowed by robots.txt / terms):
-- Reddit official API (OAuth app-only token): anonymous JSON answers 403.
-  Without REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET Reddit is skipped.
 - GitHub issue search (public API, no token): open issues labelled bounty,
-  help wanted or freelance in Python/Rust repos that name a payment of $50+
-  (max 2 per repo: bounty farms and bot-trap repos flood the search).
+  help wanted, freelance or "💎 Bounty" in Python/Rust repos, filtered
+  against bounty-scam patterns (see GITHUB RULES below).
+- Algora, through GitHub: Algora has no working public API (docs.algora.io is
+  gone and its legacy /api/trpc/bounty.list always answers an empty list),
+  but its bot labels each bounty issue "💎 Bounty" plus the amount ("$150").
 - HN monthly "Freelancer? Seeking freelancer?": SEEKING FREELANCER posts.
-
-How to set up Reddit (one time, free):
-  1. Log in to Reddit and open https://www.reddit.com/prefs/apps
-  2. Click "create another app..." (or "are you a developer? create an app...").
-  3. name: freelance-client-finder; type: choose "script";
-     redirect uri: http://localhost:8080 (required by the form, never used).
-  4. Click "create app". The client id is the short string right under
-     "personal use script"; the client secret is the "secret" field.
-  5. Paste both in 02_automation/.env (never in .env.example, it is committed):
-       REDDIT_CLIENT_ID=<the string under "personal use script">
-       REDDIT_CLIENT_SECRET=<the secret>
-  6. Run again: python freelance_client_finder.py
-Skipped on purpose: Indie Hackers (Cloudflare challenge, /api/ disallowed,
-AI crawlers blocked in robots.txt) and X (search needs the paid API).
+Removed / skipped on purpose:
+- Reddit: its Responsible Builder Policy needs written approval even for
+  non-commercial API use; using it without approval breaks its terms.
+- Indie Hackers (Cloudflare challenge, /api/ disallowed, AI crawlers blocked
+  in robots.txt) and X (search needs the paid API).
 Only drafts the pitch: sending stays manual (see CLAUDE.md).
 Output: 03_tracking/freelance_clients.md
 Usage (from 02_automation/): python freelance_client_finder.py [--verbose]
@@ -42,8 +34,6 @@ from cold_outreach import (
 )
 from config import (
     GROQ_API_KEY,
-    REDDIT_CLIENT_ID,
-    REDDIT_CLIENT_SECRET,
     REQUEST_DELAY_S,
     TRACKING_DIR,
     setup_logging,
@@ -51,39 +41,37 @@ from config import (
 from scrapers.getonboard_scraper import html_to_text, whole_words
 
 OUTPUT = TRACKING_DIR / "freelance_clients.md"
-REDDIT_TOKEN_URL = "https://www.reddit.com/api/v1/access_token"
-REDDIT_API = "https://oauth.reddit.com"
-REDDIT_URL = "https://www.reddit.com"
-# Reddit's API rules ask for a unique, descriptive User-Agent
-USER_AGENT = "script:freelance-client-finder:0.1 (by github.com/IanBertoni)"
-SUBREDDITS = ["forhire", "Python", "startups", "SaaS"]
-REDDIT_QUERY = (
-    '"hiring" OR "looking for a dev" OR "looking for a developer"'
-    ' OR "need help with python"'
-)
-GITHUB_SEARCH = "https://api.github.com/search/issues"
+USER_AGENT = "freelance-client-finder/0.2 (github.com/IanBertoni)"
+
+# ===== GITHUB RULES: scam patterns seen in the 2026-11-14 runs =====
+GITHUB_API = "https://api.github.com"
+GITHUB_SEARCH = f"{GITHUB_API}/search/issues"
+GITHUB_HEADERS = {"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT}
+ALGORA_LABEL = "\U0001f48e Bounty"  # "💎 Bounty", added by the Algora bot
 # one query per label: OR-ing them lets the ~90k "help wanted" issues bury bounties
-GITHUB_LABELS = ["bounty", "help wanted", "freelance"]
+GITHUB_LABELS = ["bounty", "help wanted", "freelance", ALGORA_LABEL]
 GITHUB_LANGUAGES = ["python", "rust"]
-# no token: 10 searches/minute, so 6 queries with a delay stay under it
+# no token: 10 searches/minute (search) and 60 requests/hour (repo info)
 GITHUB_DELAY_S = 7
-# the label alone doesn't count: the issue text must name an amount. The word
-# "bounty" alone let in 95 issues from bounty farms and bot-trap repos (2026-11-14)
+# USD only: "$500" or "500 USD"; USDC escrow is the farms' currency
 PAYMENT = re.compile(
-    r"\$\s?(\d[\d,]*(?:\.\d+)?)(k?)\b|\b(\d[\d,]*(?:\.\d+)?)()\s?(?:usd|usdc)\b",
+    r"\$\s?(\d[\d,]*(?:\.\d+)?)(k?)\b|\b(\d[\d,]*(?:\.\d+)?)()\s?usd\b",
     re.IGNORECASE,
 )
 MIN_PAYMENT_USD = 50  # "$2 site credit" issues are bait, not clients
+MIN_ALGORA_USD = 100  # Algora bounties must pay more than this
 MAX_PER_REPO = 2  # a single farm repo filled half the list
+MIN_STARS = 50
+MAX_OPEN_BOUNTIES = 100  # more open bounty issues than this = bounty farm
+# checked against the repo name and the issue title
+BLACKLIST = re.compile(
+    r"bounty-plaza|escrowed|bot-trap|honeypot|trap-benchmark", re.IGNORECASE
+)
+
+# ===== HN "Seeking freelancer" =====
 # posted by a regular user now, not by whoishiring: found by title
 HN_THREAD = "Ask HN: Freelancer? Seeking freelancer?"
 SEEKING_FREELANCER = re.compile(r"^\s*seeking freelancer", re.IGNORECASE)
-
-# "[For Hire]" posts are devs offering work, not clients: the title must say hiring
-HIRING = re.compile(
-    r"\[hiring\]|looking for an? (?:python )?dev(?:eloper)?|need help with python",
-    re.IGNORECASE,
-)
 SKILLS = whole_words(
     [
         "python",
@@ -103,26 +91,18 @@ YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
 MAX_YEARS = 5
 
 PITCH_PROMPT = """You write a short business pitch from Ian, a freelance developer
-in Argentina (stack: Python, FastAPI, RAG and Rust), to someone who posted a
-paid gig or a GitHub issue with a bounty. Reply with ONLY the message, in English.
-Follow this structure, filling [problem] with the concrete thing they need:
-"I saw your post/issue looking for [problem]. I build production systems with
-Python, FastAPI, and RAG. I can solve this for you. Here is my GitHub:
-github.com/IanBertoni."
-Always add one short line saying he also writes Rust, tied to their problem if it fits.
-Business tone, not a CV, no bullet points, max 5 lines. Invent nothing about Ian.
+in Argentina, to someone who posted a paid gig or a GitHub issue with a bounty.
+Reply with ONLY the message, in English. Follow this structure:
+"I saw your post/issue looking for [problem]. I can solve this with [technologies].
+I build production systems. Here is my GitHub: github.com/IanBertoni."
+[problem]: the concrete thing they need, in a few words.
+[technologies]: ONLY technologies that appear in the post/issue text.
+Never add a technology, language or framework the post/issue doesn't name
+(no Rust, RAG or FastAPI unless the text asks for them).
+Direct business tone, not a CV, no bullet points, max 4 lines. Invent nothing.
 Reply with exactly SKIP if it is not paid software work."""
 
 logger = logging.getLogger(__name__)
-
-
-def _wanted(text: str) -> bool:
-    years = [int(n) for n in YEARS.findall(text)]
-    return bool(
-        SKILLS.search(text)
-        and not DEALBREAKER.search(text)
-        and not any(n >= MAX_YEARS for n in years)
-    )
 
 
 def _client(fuente: str, titulo: str, autor: str, link: str, texto: str) -> dict:
@@ -135,25 +115,103 @@ def _client(fuente: str, titulo: str, autor: str, link: str, texto: str) -> dict
     }
 
 
-def reddit_clients(listing: dict) -> list[dict]:
-    """Hiring posts from a Reddit search listing that ask for Ian's skills."""
-    children = (listing.get("data") or {}).get("children") or []
-    clients = []
-    for child in children:
-        post = child.get("data") or {}
-        title = post.get("title") or ""
-        text = f"{title}\n{post.get('selftext') or ''}".strip()
-        if HIRING.search(title) and _wanted(text):
-            clients.append(
-                _client(
-                    f"Reddit r/{post.get('subreddit')}",
-                    title,
-                    post.get("author") or "?",
-                    f"{REDDIT_URL}{post.get('permalink', '')}",
-                    text,
-                )
-            )
+def github_queries() -> list[str]:
+    base = "is:issue is:open archived:false"
+    return [
+        f'{base} label:"{label}" language:{language}'
+        if " " in label
+        else f"{base} label:{label} language:{language}"
+        for label in GITHUB_LABELS
+        for language in GITHUB_LANGUAGES
+    ]
+
+
+def _payment(text: str, minimum: float) -> str | None:
+    """First USD amount of at least ``minimum`` in the text, as written."""
+    for match in PAYMENT.finditer(text):
+        number, thousands = match.group(1) or match.group(3), match.group(2) or ""
+        amount = float(number.replace(",", "")) * (1000 if thousands else 1)
+        if amount >= minimum:
+            return match.group(0).strip()
+    return None
+
+
+def github_clients(payload: dict) -> list[dict]:
+    """Cheap filters, no extra requests: USD amount, blacklist, MAX_PER_REPO."""
+    clients, per_repo = [], {}
+    for issue in payload.get("items") or []:
+        title = issue.get("title") or ""
+        repo = (issue.get("repository_url") or "").removeprefix(f"{GITHUB_API}/repos/")
+        labels = [label.get("name") or "" for label in issue.get("labels") or []]
+        algora = ALGORA_LABEL in labels
+        # Algora puts the amount in a label ("$150"), not in the issue text
+        text = f"{title}\n{issue.get('body') or ''}\n{' '.join(labels)}"
+        # Algora needs MORE than MIN_ALGORA_USD: the next cent is the minimum
+        payment = _payment(text, MIN_ALGORA_USD + 0.01 if algora else MIN_PAYMENT_USD)
+        if not payment or BLACKLIST.search(f"{repo} {title}"):
+            continue
+        per_repo[repo] = per_repo.get(repo, 0) + 1
+        if per_repo[repo] > MAX_PER_REPO:
+            continue
+        fuente = "Algora (GitHub)" if algora else "GitHub bounty"
+        client = _client(fuente, title, repo, issue.get("html_url"), text)
+        clients.append({**client, "pago": payment})
     return clients
+
+
+def repo_ok(info: dict, open_bounties: int) -> bool:
+    """Real repo: not archived, MIN_STARS+, not a farm of open bounty issues."""
+    return (
+        not info.get("archived")
+        and (info.get("stargazers_count") or 0) >= MIN_STARS
+        and open_bounties <= MAX_OPEN_BOUNTIES
+    )
+
+
+def _get(session: requests.Session, url: str, params: dict | None = None) -> dict:
+    response = session.get(
+        url, params=params, headers=GITHUB_HEADERS, timeout=TIMEOUT_S
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def _repo_passes(session: requests.Session, repo: str) -> bool:
+    info = _get(session, f"{GITHUB_API}/repos/{repo}")
+    if not repo_ok(info, 0):  # stars/archived first: costs no search request
+        return False
+    time.sleep(GITHUB_DELAY_S)
+    query = f'repo:{repo} is:issue is:open label:bounty,"{ALGORA_LABEL}"'
+    count = _get(session, GITHUB_SEARCH, {"q": query, "per_page": 1})
+    return repo_ok(info, count.get("total_count") or 0)
+
+
+def fetch_github(session: requests.Session) -> list[dict]:
+    items = []
+    for query in github_queries():
+        payload = _get(
+            session, GITHUB_SEARCH, {"q": query, "sort": "created", "per_page": 100}
+        )
+        items += payload.get("items") or []
+        time.sleep(GITHUB_DELAY_S)
+    # the same issue can carry two of the labels; filter once so the repo cap holds
+    unique = {item.get("html_url"): item for item in items}
+    candidates = github_clients({"items": list(unique.values())})
+    passed = {}
+    for repo in dict.fromkeys(c["autor"] for c in candidates):
+        passed[repo] = _repo_passes(session, repo)
+        if not passed[repo]:
+            logger.info("github: %s dropped (stars, archived or bounty farm)", repo)
+    return [c for c in candidates if passed[c["autor"]]]
+
+
+def _wanted(text: str) -> bool:
+    years = [int(n) for n in YEARS.findall(text)]
+    return bool(
+        SKILLS.search(text)
+        and not DEALBREAKER.search(text)
+        and not any(n >= MAX_YEARS for n in years)
+    )
 
 
 def hn_clients(thread: dict) -> list[dict]:
@@ -172,99 +230,6 @@ def hn_clients(thread: dict) -> list[dict]:
                     text,
                 )
             )
-    return clients
-
-
-def github_queries() -> list[str]:
-    return [
-        f'is:issue is:open label:"{label}" language:{language}'
-        if " " in label
-        else f"is:issue is:open label:{label} language:{language}"
-        for label in GITHUB_LABELS
-        for language in GITHUB_LANGUAGES
-    ]
-
-
-def github_clients(payload: dict) -> list[dict]:
-    """Issues naming a payment of at least MIN_PAYMENT_USD, at most MAX_PER_REPO per repo."""
-    clients, per_repo = [], {}
-    for issue in payload.get("items") or []:
-        title = issue.get("title") or ""
-        text = f"{title}\n{issue.get('body') or ''}"
-        payment = _payment(text)
-        if not payment:
-            continue
-        repo = (issue.get("repository_url") or "").removeprefix(
-            "https://api.github.com/repos/"
-        )
-        per_repo[repo] = per_repo.get(repo, 0) + 1
-        if per_repo[repo] > MAX_PER_REPO:
-            continue
-        client = _client("GitHub bounty", title, repo, issue.get("html_url"), text)
-        clients.append({**client, "pago": payment})
-    return clients
-
-
-def _payment(text: str) -> str | None:
-    """First amount of at least MIN_PAYMENT_USD in the text, as written."""
-    for match in PAYMENT.finditer(text):
-        number, thousands = match.group(1) or match.group(3), match.group(2) or ""
-        amount = float(number.replace(",", "")) * (1000 if thousands else 1)
-        if amount >= MIN_PAYMENT_USD:
-            return match.group(0).strip()
-    return None
-
-
-def fetch_github(session: requests.Session) -> list[dict]:
-    items = []
-    for query in github_queries():
-        response = session.get(
-            GITHUB_SEARCH,
-            params={"q": query, "sort": "created", "per_page": 100},
-            headers={"Accept": "application/vnd.github+json", "User-Agent": USER_AGENT},
-            timeout=TIMEOUT_S,
-        )
-        response.raise_for_status()
-        items += response.json().get("items") or []
-        time.sleep(GITHUB_DELAY_S)
-    # the same issue can carry two of the labels; filter once so the repo cap holds
-    unique = {item.get("html_url"): item for item in items}
-    return github_clients({"items": list(unique.values())})
-
-
-def reddit_token(session: requests.Session, client_id: str, secret: str) -> str | None:
-    """App-only OAuth token, or None when the credentials aren't set."""
-    if not (client_id and secret):
-        return None
-    response = session.post(
-        REDDIT_TOKEN_URL,
-        auth=(client_id, secret),
-        data={"grant_type": "client_credentials"},
-        headers={"User-Agent": USER_AGENT},
-        timeout=TIMEOUT_S,
-    )
-    response.raise_for_status()
-    return response.json()["access_token"]
-
-
-def fetch_reddit(session: requests.Session) -> list[dict]:
-    token = reddit_token(session, REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET)
-    if token is None:
-        logger.warning("reddit: skipped, REDDIT_CLIENT_ID/SECRET missing in .env")
-        return []
-    headers = {"Authorization": f"bearer {token}", "User-Agent": USER_AGENT}
-    params = {"q": REDDIT_QUERY, "restrict_sr": 1, "sort": "new", "t": "month"}
-    clients = []
-    for sub in SUBREDDITS:
-        time.sleep(REQUEST_DELAY_S)
-        response = session.get(
-            f"{REDDIT_API}/r/{sub}/search",
-            params={**params, "limit": 100},
-            headers=headers,
-            timeout=TIMEOUT_S,
-        )
-        response.raise_for_status()
-        clients += reddit_clients(response.json())
     return clients
 
 
@@ -311,7 +276,7 @@ def write_pitches(clients: list[dict], session: requests.Session) -> list[dict]:
 
 
 def render(clients: list[dict]) -> str:
-    blocks = ["# Freelance clients (Reddit, GitHub bounties, HN Seeking freelancer)\n"]
+    blocks = ["# Freelance clients (GitHub bounties, Algora, HN Seeking freelancer)\n"]
     for c in clients:
         payment = f"- Pago: {c['pago']}\n" if c.get("pago") else ""
         blocks.append(
@@ -329,8 +294,7 @@ def main() -> None:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
     clients = []
-    sources = (("reddit", fetch_reddit), ("github", fetch_github), ("hn", fetch_hn))
-    for name, fetch in sources:
+    for name, fetch in (("github", fetch_github), ("hn", fetch_hn)):
         try:
             clients += fetch(session)
         except (requests.RequestException, LookupError, KeyError, ValueError) as error:
