@@ -1,10 +1,144 @@
 {
-  "total_count": 4,
-  "incomplete_results": false,
-  "items": [
-    {"html_url": "https://github.com/acme/ragkit/issues/12", "repository_url": "https://api.github.com/repos/acme/ragkit", "title": "Add hybrid search to the retriever", "body": "We will pay a $250 bounty for this, paid via Algora.", "labels": [{"name": "bounty"}], "state": "open"},
-    {"html_url": "https://github.com/ferris/fastparse/issues/3", "repository_url": "https://api.github.com/repos/ferris/fastparse", "title": "Speed up the CSV parser (100 USD)", "body": null, "labels": [{"name": "help wanted"}], "state": "open"},
-    {"html_url": "https://github.com/hobby/tool/issues/7", "repository_url": "https://api.github.com/repos/hobby/tool", "title": "Fix typo in README", "body": "Anyone can help, thanks!", "labels": [{"name": "help wanted"}], "state": "open"},
-    {"html_url": "https://github.com/labelonly/app/issues/1", "repository_url": "https://api.github.com/repos/labelonly/app", "title": "Refactor config loader", "body": "Has the label but says nothing about money.", "labels": [{"name": "freelance"}], "state": "open"}
-  ]
+ "total_count": 11,
+ "incomplete_results": false,
+ "items": [
+  {
+   "html_url": "https://github.com/acme/ragkit/issues/12",
+   "repository_url": "https://api.github.com/repos/acme/ragkit",
+   "title": "Add hybrid search to the retriever",
+   "body": "We will pay $250 for this, via GitHub Sponsors.",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/ferris/fastparse/issues/3",
+   "repository_url": "https://api.github.com/repos/ferris/fastparse",
+   "title": "Speed up the CSV parser (100 USD)",
+   "body": null,
+   "labels": [
+    {
+     "name": "help wanted"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/hobby/tool/issues/7",
+   "repository_url": "https://api.github.com/repos/hobby/tool",
+   "title": "Fix typo in README",
+   "body": "Anyone can help, thanks!",
+   "labels": [
+    {
+     "name": "help wanted"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/labelonly/app/issues/1",
+   "repository_url": "https://api.github.com/repos/labelonly/app",
+   "title": "Refactor config loader",
+   "body": "Has the label but says nothing about money.",
+   "labels": [
+    {
+     "name": "freelance"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/PhanKhoa95/oss-bot-trap-benchmark/issues/88",
+   "repository_url": "https://api.github.com/repos/PhanKhoa95/oss-bot-trap-benchmark",
+   "title": "[Bounty $1,600] harden multi-tenant RAG guard",
+   "body": "Claim it fast.",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/someone/rewards/issues/4",
+   "repository_url": "https://api.github.com/repos/someone/rewards",
+   "title": "[Escrowed $600 USDC] Stabilize shard watermarks",
+   "body": "Paid on merge.",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/tscircuit/core/issues/501",
+   "repository_url": "https://api.github.com/repos/tscircuit/core",
+   "title": "Support SVG export of footprints",
+   "body": "See the Algora bot comment.",
+   "labels": [
+    {
+     "name": "💎 Bounty"
+    },
+    {
+     "name": "$150"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/small/org/issues/9",
+   "repository_url": "https://api.github.com/repos/small/org",
+   "title": "Add a CLI flag",
+   "body": "",
+   "labels": [
+    {
+     "name": "💎 Bounty"
+    },
+    {
+     "name": "$100"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/crypto/dex/issues/2",
+   "repository_url": "https://api.github.com/repos/crypto/dex",
+   "title": "Fix rounding (500 USDC)",
+   "body": "",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/farm/money/issues/3",
+   "repository_url": "https://api.github.com/repos/farm/money",
+   "title": "Implement cache layer",
+   "body": "Reward: $300",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  },
+  {
+   "html_url": "https://github.com/old/lib/issues/5",
+   "repository_url": "https://api.github.com/repos/old/lib",
+   "title": "Port module to Rust",
+   "body": "Bounty: $200",
+   "labels": [
+    {
+     "name": "bounty"
+    }
+   ],
+   "state": "open"
+  }
+ ]
 }
