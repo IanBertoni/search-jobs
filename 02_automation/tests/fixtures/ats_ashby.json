@@ -1,0 +1,46 @@
+{
+ "jobs": [
+  {
+   "id": "89b43c11-b3aa-4e21-be12-6286fab7e0d8",
+   "title": "Data Engineer - Open Application",
+   "department": "Pipeline",
+   "team": "Pipeline",
+   "employmentType": "FullTime",
+   "location": "LatAm",
+   "secondaryLocations": [],
+   "publishedAt": "2025-01-15T10:35:46.340+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Remote",
+   "address": {
+    "postalAddress": {
+     "addressCountry": "Panama"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/truelogic/89b43c11-b3aa-4e21-be12-6286fab7e0d8",
+   "applyUrl": "https://jobs.ashbyhq.com/truelogic/89b43c11-b3aa-4e21-be12-6286fab7e0d8/application",
+   "descriptionPlain": "ABOUT TRUELOGIC\n\nAt Truelogic we are a leading provider of nearshore staff augmentation services headquartered in New York. For over two decades, we’ve been delivering top-tier technology solutions to companies of all sizes, from innovative startups to industry leaders, helping them achieve their digital transformation goals.\n\nOur team of 600+ highly skilled tech professionals, based in Latin America, drives digital disruption by partnering with U.S. companies on their most impactful projects. Whether collaborating with Fortune 500 giants or scaling startups, we deliver results that make a difference.\n\nBy applying for this position, you’re taking the first step in joining a dynamic team that values your expertise and aspirations. We aim to align your skills with opportunities that foster exceptional career growth and success while contributing to transformative projects that shape the future.\n\n\n\n\nRESPONSIBILITIES\n\n - 5+ years working on the role professionally.\n\n - Coding:\n   \n   - Coding Python and use in data processing solutions and related data technologies like Pandas, and PySpark.\n   \n   - Consume data from different sources like REST APIs.\n\n - Data Stores:\n   \n   - Work with"
+  },
+  {
+   "id": "09bb501c-e72d-4c9e-8df3-212ac53e69d9",
+   "title": "Senior Front-end Engineer - Open Application",
+   "department": "Pipeline",
+   "team": "Pipeline",
+   "employmentType": "FullTime",
+   "location": "LatAm",
+   "secondaryLocations": [],
+   "publishedAt": "2025-01-15T10:36:04.937+00:00",
+   "isListed": true,
+   "isRemote": true,
+   "workplaceType": "Remote",
+   "address": {
+    "postalAddress": {
+     "addressCountry": "Panama"
+    }
+   },
+   "jobUrl": "https://jobs.ashbyhq.com/truelogic/09bb501c-e72d-4c9e-8df3-212ac53e69d9",
+   "applyUrl": "https://jobs.ashbyhq.com/truelogic/09bb501c-e72d-4c9e-8df3-212ac53e69d9/application",
+   "descriptionPlain": "ABOUT TRUELOGIC\n\nAt Truelogic we are a leading provider of nearshore staff augmentation services headquartered in New York. For over two decades, we’ve been delivering top-tier technology solutions to companies of all sizes, from innovative startups to industry leaders, helping them achieve their digital transformation goals.\n\nOur team of 600+ highly skilled tech professionals, based in Latin America, drives digital disruption by partnering with U.S. companies on their most impactful projects. Whether collaborating with Fortune 500 giants or scaling startups, we deliver results that make a difference.\n\nBy applying for this position, you’re taking the first step in joining a dynamic team that values your expertise and aspirations. We aim to align your skills with opportunities that foster exceptional career growth and success while contributing to transformative projects that shape the future.\n\n\n\n\nRESPONSIBILITIES\n\n - 5+ years working on software development professionally.\n\n - The ability to create well-responsive, accessible, and performant web interfaces managed by clean UI code using a modern framework (React, Vue, Angular).\n\n - Solid experience with the standard tech stack for "
+  }
+ ]
+}

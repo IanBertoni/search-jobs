@@ -1,0 +1,53 @@
+[
+ {
+  "categories": {
+   "commitment": "Full time",
+   "department": "Data & AI",
+   "location": "Santiago",
+   "team": "Data Science",
+   "allLocations": [
+    "Santiago",
+    "Ciudad de México"
+   ]
+  },
+  "createdAt": 1701449708306,
+  "descriptionPlain": "🚀 ¿Por qué trabajar en Xepelin?\nXepelin está transformando las finanzas empresariales en Latinoamérica con una suite de productos que automatizan la gestión financiera y facilitan el acceso a liquidez. Con el objetivo de convertirse en el CFO digital de todo negocio, ha desarrollado tecnología financiera que impacta en todo el ecosistema empresarial. Gracias a la data obtenida por la interacción de +1M de empresas dentro de su network, se construye un sistema de inteligencia de negocios que da visibilidad de indicadores financieros y evaluaciones de riesgo de la red con la que se colabora, ayu",
+  "id": "76957508-6157-4aa4-9ab1-9d944a77930c",
+  "lists": [
+   {
+    "text": "🎯 Principales responsabilidades",
+    "content": "<p><strong>Análisis de Datos y Feature Engineering:</strong></p>\n\n<li>Recopilar, limpiar y preprocesar datos de múltiples fuentes (transaccionales, comportamentales, crediticios, etc.).</li>\n<li>Realizar análisis exploratorio de datos para identificar patrones.</li>\n\n<p><strong>Desarrollo y Despliegue de Modelos:</strong></p>\n\n<li>Diseñar e implementar modelos de machine learning para casos de uso financieros (por ejemplo, scoring crediticio, detección de fraudes, predicción de churn).</li>\n<li>Optimizar el rendimiento de los modelos mediante ajuste de hiperparámetros y validación cruzada.</li"
+   },
+   {
+    "text": "🏆  ¿Qué necesitas para brillar?",
+    "content": "<div>\n<p><strong>Habilidades Técnicas:</strong></p>\n\n<li>Dominio de Python y bibliotecas de ciencia de datos (por ejemplo, pandas, NumPy, scikit-learn y TensorFlow).</li>\n<li>Experiencia con nube, de preferencia GCP</li>\n<li>Conocimientos básicos de MLOps y CI/CD para la automatización de pipelines de modelos.</li>\n<li>Experiencia en la aplicación de LLMs dentro del sector financiero o en workflows de DS.</li>\n\n<p><strong>Experiencia en Banca/Finanzas:</strong></p>\n\n<li>1 año de experiencia en banca, fintech o sectores financieros (deseable)</li>\n\n<p><strong>Habilidades Analíticas:</strong></p"
+   }
+  ],
+  "text": "Data Scientist I",
+  "country": "CL",
+  "workplaceType": "hybrid",
+  "hostedUrl": "https://jobs.lever.co/xepelin/76957508-6157-4aa4-9ab1-9d944a77930c",
+  "applyUrl": "https://jobs.lever.co/xepelin/76957508-6157-4aa4-9ab1-9d944a77930c/apply"
+ },
+ {
+  "categories": {
+   "commitment": "Contract",
+   "location": "Remote - LatAm",
+   "allLocations": [
+    "Remote - LatAm"
+   ]
+  },
+  "createdAt": 1793000000000,
+  "descriptionPlain": "Build Python ETL pipelines.",
+  "id": "r1",
+  "text": "Python Data Engineer",
+  "workplaceType": "remote",
+  "hostedUrl": "https://jobs.lever.co/acme/r1",
+  "lists": [
+   {
+    "text": "Requirements",
+    "content": "<li>1+ years with Python</li><li>SQL</li>"
+   }
+  ]
+ }
+]
