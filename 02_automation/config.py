@@ -80,6 +80,9 @@ FIT_TITLE_KEYWORDS = _env(
 GROQ_API_KEY = _env("GROQ_API_KEY", "")
 GROQ_MODEL = _env("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_BASE_URL = _env("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")
+# freelance_client_finder.py: a free "script" app at reddit.com/prefs/apps
+REDDIT_CLIENT_ID = _env("REDDIT_CLIENT_ID", "")
+REDDIT_CLIENT_SECRET = _env("REDDIT_CLIENT_SECRET", "")
 
 TRACKING_DIR = Path(__file__).resolve().parents[1] / "03_tracking"
 LOG_FORMAT = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"

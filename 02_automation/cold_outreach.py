@@ -155,8 +155,10 @@ github.com/IanBertoni. I'm in Argentina, fully remote. Open to a quick chat?\"""
 # ===== STEP 1 - OBSERVE: read the latest HN "Who is hiring?" thread =====
 
 
-def latest_hiring_thread(session: requests.Session) -> str:
-    """Id of the newest "Ask HN: Who is hiring?" (whoishiring also posts others)."""
+def latest_hiring_thread(
+    session: requests.Session, title: str = "Ask HN: Who is hiring?"
+) -> str:
+    """Id of the newest whoishiring story starting with ``title`` (it posts several)."""
     response = session.get(
         f"{ALGOLIA_URL}/search_by_date",
         params={"tags": "story,author_whoishiring", "hitsPerPage": 10},
@@ -164,9 +166,9 @@ def latest_hiring_thread(session: requests.Session) -> str:
     )
     response.raise_for_status()
     for hit in response.json()["hits"]:
-        if hit["title"].startswith("Ask HN: Who is hiring?"):
+        if hit["title"].startswith(title):
             return hit["objectID"]
-    raise LookupError("no 'Who is hiring?' thread in the latest whoishiring stories")
+    raise LookupError(f"no '{title}' thread in the latest whoishiring stories")
 
 
 # ===== STEP 2 - EVALUATE: deterministic filter, a rejected post never reaches Groq =====
@@ -245,6 +247,11 @@ def ask_groq(offer: dict, session: requests.Session) -> str:
         f"HN username: {offer['autor']}\nCompany: {offer['empresa']}\n"
         f"Role: {offer['rol']}\nPost:\n{offer['texto'][:3000]}"
     )
+    return groq_chat(SYSTEM_PROMPT, post, session)
+
+
+def groq_chat(system: str, user: str, session: requests.Session) -> str:
+    """One Groq chat completion; a non-2xx answer raises requests.HTTPError."""
     response = session.post(
         f"{GROQ_BASE_URL}/chat/completions",
         headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
@@ -252,8 +259,8 @@ def ask_groq(offer: dict, session: requests.Session) -> str:
             "model": GROQ_MODEL,
             "max_completion_tokens": MAX_TOKENS,
             "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": post},
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
             ],
         },
         timeout=TIMEOUT_S,
