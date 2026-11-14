@@ -4,7 +4,8 @@ Sources (public and allowed by robots.txt / terms):
 - Reddit official API (OAuth app-only token): anonymous JSON answers 403.
   Without REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET Reddit is skipped.
 - GitHub issue search (public API, no token): open issues labelled bounty,
-  help wanted or freelance in Python/Rust repos that mention a payment.
+  help wanted or freelance in Python/Rust repos that name a payment of $50+
+  (max 2 per repo: bounty farms and bot-trap repos flood the search).
 - HN monthly "Freelancer? Seeking freelancer?": SEEKING FREELANCER posts.
 
 How to set up Reddit (one time, free):
@@ -66,10 +67,14 @@ GITHUB_LABELS = ["bounty", "help wanted", "freelance"]
 GITHUB_LANGUAGES = ["python", "rust"]
 # no token: 10 searches/minute, so 6 queries with a delay stay under it
 GITHUB_DELAY_S = 7
-# the label alone doesn't count: the issue text must mention the payment
+# the label alone doesn't count: the issue text must name an amount. The word
+# "bounty" alone let in 95 issues from bounty farms and bot-trap repos (2026-11-14)
 PAYMENT = re.compile(
-    r"\$\s?\d[\d,.]*k?|\b\d[\d,.]*\s?(?:usd|usdc)\b|\bbounty\b", re.IGNORECASE
+    r"\$\s?(\d[\d,]*(?:\.\d+)?)(k?)\b|\b(\d[\d,]*(?:\.\d+)?)()\s?(?:usd|usdc)\b",
+    re.IGNORECASE,
 )
+MIN_PAYMENT_USD = 50  # "$2 site credit" issues are bait, not clients
+MAX_PER_REPO = 2  # a single farm repo filled half the list
 # posted by a regular user now, not by whoishiring: found by title
 HN_THREAD = "Ask HN: Freelancer? Seeking freelancer?"
 SEEKING_FREELANCER = re.compile(r"^\s*seeking freelancer", re.IGNORECASE)
@@ -181,24 +186,37 @@ def github_queries() -> list[str]:
 
 
 def github_clients(payload: dict) -> list[dict]:
-    """Issues from a search payload that mention a payment; the rest is unpaid work."""
-    clients = []
+    """Issues naming a payment of at least MIN_PAYMENT_USD, at most MAX_PER_REPO per repo."""
+    clients, per_repo = [], {}
     for issue in payload.get("items") or []:
         title = issue.get("title") or ""
         text = f"{title}\n{issue.get('body') or ''}"
-        payment = PAYMENT.search(text)
+        payment = _payment(text)
         if not payment:
             continue
         repo = (issue.get("repository_url") or "").removeprefix(
             "https://api.github.com/repos/"
         )
+        per_repo[repo] = per_repo.get(repo, 0) + 1
+        if per_repo[repo] > MAX_PER_REPO:
+            continue
         client = _client("GitHub bounty", title, repo, issue.get("html_url"), text)
-        clients.append({**client, "pago": payment.group(0)})
+        clients.append({**client, "pago": payment})
     return clients
 
 
+def _payment(text: str) -> str | None:
+    """First amount of at least MIN_PAYMENT_USD in the text, as written."""
+    for match in PAYMENT.finditer(text):
+        number, thousands = match.group(1) or match.group(3), match.group(2) or ""
+        amount = float(number.replace(",", "")) * (1000 if thousands else 1)
+        if amount >= MIN_PAYMENT_USD:
+            return match.group(0).strip()
+    return None
+
+
 def fetch_github(session: requests.Session) -> list[dict]:
-    clients = []
+    items = []
     for query in github_queries():
         response = session.get(
             GITHUB_SEARCH,
@@ -207,10 +225,11 @@ def fetch_github(session: requests.Session) -> list[dict]:
             timeout=TIMEOUT_S,
         )
         response.raise_for_status()
-        clients += github_clients(response.json())
+        items += response.json().get("items") or []
         time.sleep(GITHUB_DELAY_S)
-    # the same issue can carry two of the labels
-    return list({c["link"]: c for c in clients}.values())
+    # the same issue can carry two of the labels; filter once so the repo cap holds
+    unique = {item.get("html_url"): item for item in items}
+    return github_clients({"items": list(unique.values())})
 
 
 def reddit_token(session: requests.Session, client_id: str, secret: str) -> str | None:
