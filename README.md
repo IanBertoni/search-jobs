@@ -12,23 +12,26 @@ an email on its own.
 
 Each module follows the same loop: **observe → evaluate → act → check the output**.
 
-```
- ┌────────────────────┐   ┌────────────────────┐   ┌────────────────────┐
- │ 1. SCRAPER         │   │ 2. FILTER          │   │ 3. LLM MATCHER     │
- │ observe            │──▶│ evaluate (no LLM)  │──▶│ act                │
- │ HN Algolia API,    │   │ closed posts, visa,│   │ Groq gpt-oss-120b  │
- │ Get on Board API,  │   │ location, seniority│   │ drafts email /     │
- │ Remotive & AI-     │   │ PhD/PyTorch, role  │   │ pitch + tailored CV│
- │ training RSS feeds │   │ keywords           │   │                    │
- └────────────────────┘   └────────────────────┘   └─────────┬──────────┘
-                                                             │
- ┌────────────────────┐   ┌────────────────────┐             │
- │ 5. OUTPUT          │   │ 4. GUARDRAIL       │             │
- │ Markdown/CSV in    │◀──│ check the output   │◀────────────┘
- │ 03_tracking/,      │   │ SKIP veto, invented│
- │ ready to review    │   │ facts, AI tone,    │──▶ retry once with
- │ and send by hand   │   │ name fixes         │    stricter rules
- └────────────────────┘   └────────────────────┘
+```text
+[ Hacker News Post ]
+       │
+       ▼
+┌──────────────────────────────┐
+│ 1. Hardcoded Filter          │  <-- Drops H1B, US-Only, Senior roles
+└──────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────┐
+│ 2. Agentic Evaluator (Groq)  │  <-- Reads context, decides to SKIP or Write
+└──────────────────────────────┘
+       │
+       ▼
+┌──────────────────────────────┐
+│ 3. Software Guardrails       │  <-- Regex fixes, AI-tone detection
+└──────────────────────────────┘
+       │
+       ▼
+[ Clean Markdown Output ] 
 ```
 
 | Step | Cold outreach (`cold_outreach.py`) | Applications (`tailoring_engine.py`) |
