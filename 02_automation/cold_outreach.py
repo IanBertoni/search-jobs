@@ -155,10 +155,8 @@ github.com/IanBertoni. I'm in Argentina, fully remote. Open to a quick chat?\"""
 # ===== STEP 1 - OBSERVE: read the latest HN "Who is hiring?" thread =====
 
 
-def latest_hiring_thread(
-    session: requests.Session, title: str = "Ask HN: Who is hiring?"
-) -> str:
-    """Id of the newest whoishiring story starting with ``title`` (it posts several)."""
+def latest_hiring_thread(session: requests.Session) -> str:
+    """Id of the newest "Ask HN: Who is hiring?" (whoishiring also posts others)."""
     response = session.get(
         f"{ALGOLIA_URL}/search_by_date",
         params={"tags": "story,author_whoishiring", "hitsPerPage": 10},
@@ -166,9 +164,9 @@ def latest_hiring_thread(
     )
     response.raise_for_status()
     for hit in response.json()["hits"]:
-        if hit["title"].startswith(title):
+        if hit["title"].startswith("Ask HN: Who is hiring?"):
             return hit["objectID"]
-    raise LookupError(f"no '{title}' thread in the latest whoishiring stories")
+    raise LookupError("no 'Who is hiring?' thread in the latest whoishiring stories")
 
 
 # ===== STEP 2 - EVALUATE: deterministic filter, a rejected post never reaches Groq =====

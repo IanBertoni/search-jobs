@@ -6,6 +6,7 @@ import pytest
 
 from freelance_client_finder import (
     hn_clients,
+    latest_freelancer_thread,
     reddit_clients,
     reddit_token,
     render,
@@ -132,3 +133,23 @@ def test_render_lists_each_client_with_link_and_pitch():
     assert "## [Hiring] Python dev to build a RAG chatbot over our docs" in text
     assert "https://www.reddit.com/r/forhire/comments/abc/hiring_python_dev/" in text
     assert PITCH in text
+
+
+def test_latest_freelancer_thread_takes_the_newest_matching_title():
+    hits = {
+        "hits": [
+            {"objectID": "9", "title": "Show HN: Seeking freelancer tool"},
+            {
+                "objectID": "50338744",
+                "title": "Ask HN: Freelancer? Seeking freelancer? (November 2026)",
+            },
+            {
+                "objectID": "49922572",
+                "title": "Ask HN: Freelancer? Seeking freelancer? (October 2026)",
+            },
+        ]
+    }
+    session = MagicMock()
+    session.get.return_value = MagicMock(json=MagicMock(return_value=hits))
+
+    assert latest_freelancer_thread(session) == "50338744"
