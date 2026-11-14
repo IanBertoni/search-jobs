@@ -1,0 +1,9 @@
+[
+  {"last_updated": 1794556821, "legal": "API Terms of Service: Please link back to the URL on Remote OK and mention Remote OK as a source."},
+  {"id": "1", "company": "RagCo", "position": "Python RAG Contractor", "tags": ["python", "ai"], "location": "Worldwide", "description": "<p>Contract role, $60/hr, LLM pipelines.</p>", "salary_min": 0, "salary_max": 0, "url": "https://remoteOK.com/remote-jobs/1"},
+  {"id": "2", "company": "AutoInc", "position": "Automation Engineer", "tags": ["automation", "part time"], "location": "", "description": "<p>Freelance scripting work.</p>", "salary_min": 50000, "salary_max": 70000, "url": "https://remoteOK.com/remote-jobs/2"},
+  {"id": "3", "company": "BigData", "position": "Data Engineer", "tags": ["data", "python"], "location": "Remote", "description": "<p>Full-time position with benefits. Contract-to-hire possible.</p>", "salary_min": 0, "salary_max": 0, "url": "https://remoteOK.com/remote-jobs/3"},
+  {"id": "4", "company": "USCo", "position": "Python Contractor", "tags": ["python"], "location": "US Only", "description": "<p>Contract.</p>", "salary_min": 0, "salary_max": 0, "url": "https://remoteOK.com/remote-jobs/4"},
+  {"id": "5", "company": "Shop", "position": "Freelance Designer", "tags": ["design"], "location": "Worldwide", "description": "<p>Freelance.</p>", "salary_min": 0, "salary_max": 0, "url": "https://remoteOK.com/remote-jobs/5"},
+  {"id": "6", "company": "Berlin AI", "position": "AI Contractor", "tags": ["ai"], "location": "Berlin, Germany", "description": "<p>Contract.</p>", "salary_min": 0, "salary_max": 0, "url": "https://remoteOK.com/remote-jobs/6"}
+]

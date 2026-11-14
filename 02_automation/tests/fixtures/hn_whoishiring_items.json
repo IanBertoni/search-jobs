@@ -5,7 +5,7 @@
   {
    "id": 101,
    "author": "jane_founder",
-   "text": "Acme AI | Data Engineer | REMOTE (LATAM ok) | Full-time<p>Seed-stage, we build RAG tooling in Python. Email jobs@acme.ai",
+   "text": "Acme AI | Data Engineer | REMOTE (LATAM ok) | Full-time<p>Junior role. Seed-stage, we build RAG tooling in Python. Email jobs@acme.ai",
    "children": [
     {
      "id": 1011,
@@ -18,7 +18,7 @@
   {
    "id": 102,
    "author": "bob",
-   "text": "Ferrous | Backend Engineer (Rust) | Remote | Full-time<p>Small team, 2+ years of Rust.",
+   "text": "Ferrous | Backend Engineer (Rust) | Remote | Full-time<p>Small team, entry level, 2+ years of Rust.",
    "children": []
   },
   {
@@ -96,7 +96,7 @@
   {
    "id": 115,
    "author": "nia",
-   "text": "Globo | Full-Time | Worldwide<p>We need a Python backend dev.",
+   "text": "Globo | Full-Time | Worldwide<p>We need a junior Python backend dev.",
    "children": []
   }
  ]

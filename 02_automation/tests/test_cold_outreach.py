@@ -39,7 +39,49 @@ def test_latest_thread_skips_who_wants_to_be_hired():
 
 
 def comment(text: str) -> dict:
+    # every post must say it's junior to pass, so tests of other rules add it
+    text = f"{text}<p>Junior role."
     return {"children": [{"id": 1, "author": "x", "text": text, "children": []}]}
+
+
+def raw_comment(text: str) -> dict:
+    return {"children": [{"id": 1, "author": "x", "text": text, "children": []}]}
+
+
+@pytest.mark.parametrize(
+    "seniority",
+    [
+        "Junior",
+        "Entry level",
+        "Entry-level",
+        "New grad",
+        "Trainee",
+        "Associate",
+        "Apprentice",
+    ],
+)
+def test_parse_keeps_posts_that_say_junior(seniority):
+    text = f"Co | {seniority} Data Engineer | Remote<p>Python."
+
+    assert len(parse_offers(raw_comment(text))) == 1
+
+
+def test_parse_drops_posts_that_dont_say_junior():
+    assert parse_offers(raw_comment("Co | Data Engineer | Remote<p>Python.")) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Co | Founding Engineer | Remote<p>Python.",
+        "Co | Data Engineer | Remote<p>Python, 3+ years.",
+        "Co | Data Engineer | Remote<p>Python, 4+ years.",
+        "Co | Staff Data Engineer | Remote<p>Python.",
+        "Co | Tech Lead | Remote<p>Python.",
+    ],
+)
+def test_parse_drops_senior_signals_even_if_junior(text):
+    assert parse_offers(comment(text)) == []
 
 
 def test_parse_keeps_only_matching_remote_non_senior_offers():
