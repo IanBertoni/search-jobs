@@ -25,7 +25,6 @@ from cold_outreach import (
     HN_ITEM_URL,
     TIMEOUT_S,
     groq_chat,
-    latest_hiring_thread,
 )
 from config import (
     GROQ_API_KEY,
@@ -48,6 +47,7 @@ REDDIT_QUERY = (
     '"hiring" OR "looking for a dev" OR "looking for a developer"'
     ' OR "need help with python"'
 )
+# posted by a regular user now, not by whoishiring: found by title
 HN_THREAD = "Ask HN: Freelancer? Seeking freelancer?"
 SEEKING_FREELANCER = re.compile(r"^\s*seeking freelancer", re.IGNORECASE)
 
@@ -182,8 +182,22 @@ def fetch_reddit(session: requests.Session) -> list[dict]:
     return clients
 
 
+def latest_freelancer_thread(session: requests.Session) -> str:
+    """Id of the newest "Freelancer? Seeking freelancer?" story."""
+    response = session.get(
+        f"{ALGOLIA_URL}/search_by_date",
+        params={"query": f'"{HN_THREAD}"', "tags": "story", "hitsPerPage": 10},
+        timeout=TIMEOUT_S,
+    )
+    response.raise_for_status()
+    for hit in response.json()["hits"]:
+        if hit["title"].startswith(HN_THREAD):
+            return hit["objectID"]
+    raise LookupError(f"no '{HN_THREAD}' story found")
+
+
 def fetch_hn(session: requests.Session) -> list[dict]:
-    thread_id = latest_hiring_thread(session, HN_THREAD)
+    thread_id = latest_freelancer_thread(session)
     time.sleep(REQUEST_DELAY_S)
     response = session.get(f"{ALGOLIA_URL}/items/{thread_id}", timeout=TIMEOUT_S)
     response.raise_for_status()
