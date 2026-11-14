@@ -1,0 +1,122 @@
+{
+ "jobs": [
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/clara/jobs/5256302007",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 4670301007,
+   "location": {
+    "name": "Monterrey / NLE / Mexico"
+   },
+   "metadata": null,
+   "id": 5256302007,
+   "updated_at": "2026-10-11T15:26:05-04:00",
+   "requisition_id": "683",
+   "title": "AI-Native Engineer, New Grad (Hybrid)",
+   "company_name": "Clara ",
+   "first_published": "2026-10-02T21:35:12-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;&lt;strong&gt;Clara is the leading platform in Latin America for companies to execute and manage every payment operation.&lt;/strong&gt; More than 50,000 leading and fast-growing businesses run on our corporate cards, bill pay, financing and B2B payments, and in 2025 the Financial Times named Clara the region’s fastest-growing company. We’re passionate about helping every company we work with become more effective—and, through that, raising the region’s competitiveness. We’re ~400 people, backed by Notable Capital, Coatue, Kaszek, monashees, DST Global, ICONIQ, General Catalyst and Goldman Sachs, among others.&lt;/p&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;strong&gt;Ready to start your career at full speed?&lt;/strong&gt;&lt;br&gt;&lt;br&gt;What you’ll actually do&lt;/div&gt;\n&lt;ul&gt;\n&lt;li&gt;Ship production code in your first weeks — real features, real customers, real money moving.&lt;/li&gt;\n&lt;li&gt;Own features end to end: design, build, test, deploy, watch the metrics, fix what you broke.&lt;/li&gt;\n&lt;li&gt;Use AI across your workflow — coding, debugging, testing, research, automating the boring parts — and push the frontier of how your team uses it, not just how you do.&lt;/li&gt;\n&lt;li&gt;Work directly with Product, Design, and senior engineers. Ask the dumb question early; it’s cheaper than the wrong build.&lt;/li&gt;\n&lt;li&gt;Learn the domain deeply. B2B fintech in LatAm is genuinely hard — multiple countri",
+   "departments": [
+    {
+     "id": 4009691007,
+     "name": "Engineering/ Builders",
+     "child_ids": [
+      4009708007,
+      4009704007,
+      4009705007,
+      4009706007,
+      4009709007,
+      4009710007,
+      4009707007,
+      4012897007,
+      4009711007
+     ],
+     "parent_id": 4012238007
+    }
+   ],
+   "offices": [
+    {
+     "id": 4008693007,
+     "name": "Mexico",
+     "location": null,
+     "child_ids": [
+      4046196007,
+      4059996007,
+      4059997007
+     ],
+     "parent_id": null
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": null
+  },
+  {
+   "absolute_url": "https://job-boards.greenhouse.io/clara/jobs/5235807007",
+   "data_compliance": [
+    {
+     "type": "gdpr",
+     "requires_consent": false,
+     "requires_processing_consent": false,
+     "requires_retention_consent": false,
+     "retention_period": null,
+     "demographic_data_consent_applies": false
+    }
+   ],
+   "internal_job_id": 4680093007,
+   "location": {
+    "name": "Bogota D.C. / DC / Colombia; Buenos Aires / C / Argentina; Latin America; Mexico City / CDMX / Mexico; Sao Paulo / SP / Brazil"
+   },
+   "metadata": null,
+   "id": 5235807007,
+   "updated_at": "2026-10-11T15:26:05-04:00",
+   "requisition_id": "714",
+   "title": "Senior Auth Engineer — Users & Auth - Remote First",
+   "company_name": "Clara ",
+   "first_published": "2026-09-11T14:42:28-04:00",
+   "language": "en",
+   "application_deadline": null,
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;&lt;strong&gt;Clara is the leading platform in Latin America for companies to execute and manage every payment operation.&lt;/strong&gt; More than 50,000 leading and fast-growing businesses run on our corporate cards, bill pay, financing and B2B payments, and in 2025 the Financial Times named Clara the region’s fastest-growing company. We’re passionate about helping every company we work with become more effective—and, through that, raising the region’s competitiveness. We’re ~400 people, backed by Notable Capital, Coatue, Kaszek, monashees, DST Global, ICONIQ, General Catalyst and Goldman Sachs, among others.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;Auth Engineer — Users &amp;amp; Auth&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We&#39;re looking for an Auth Engineer to own, architect, and build the systems that define how users exist and move within Clara&#39;s platform — authentication, authorization, identity, and access control. This is one of those roles where the work is invisible when it&#39;s done right and critical when it&#39;s not. The scope is deep and end-to-end: architecting the identity layer, designing auth flows, managing the user lifecycle, integrating Auth0 with Clara&#39;s platform, and making sure the frontend and backend sides of identity speak the same language. You&#39;ll be the person the rest of engineering turns to when there&#39;s an auth question no one else can answer. Security isn&#39;t a checklist h",
+   "departments": [
+    {
+     "id": 4009691007,
+     "name": "Engineering/ Builders",
+     "child_ids": [
+      4009708007,
+      4009704007,
+      4009705007,
+      4009706007,
+      4009709007,
+      4009710007,
+      4009707007,
+      4012897007,
+      4009711007
+     ],
+     "parent_id": 4012238007
+    }
+   ],
+   "offices": [
+    {
+     "id": 4008691007,
+     "name": "Latin America ",
+     "location": null,
+     "child_ids": [],
+     "parent_id": null
+    }
+   ],
+   "ai_disclaimer": null,
+   "include_ai_disclaimer": null,
+   "ai_opt_out_request_url": null
+  }
+ ]
+}
