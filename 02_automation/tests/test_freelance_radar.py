@@ -114,3 +114,17 @@ def test_render_escapes_pipes_in_cells():
     }
 
     assert "| HN | A / B | C | ? | l |" in render([lead])
+
+
+def test_remoteok_ignores_contract_words_in_the_description():
+    job = {
+        "id": "9",
+        "company": "X",
+        "position": "Python Engineer",
+        "tags": ["python"],
+        "location": "Remote",
+        "description": "Translate needs into contract deliverables.",
+        "url": "u",
+    }
+
+    assert remoteok_leads([job]) == []

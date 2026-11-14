@@ -82,7 +82,8 @@ def remoteok_leads(jobs: list[dict]) -> list[dict]:
         description = html_to_text(job.get("description"))
         if not (
             KEYWORDS.search(f"{title} {tags}")
-            and _is_contract(f"{title} {tags} {description}")
+            # not the description: "contract deliverables" is no contract
+            and _is_contract(f"{title} {tags}")
             and location_ok(job.get("location") or "")
         ):
             continue
