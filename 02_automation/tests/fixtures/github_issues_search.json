@@ -1,0 +1,10 @@
+{
+  "total_count": 4,
+  "incomplete_results": false,
+  "items": [
+    {"html_url": "https://github.com/acme/ragkit/issues/12", "repository_url": "https://api.github.com/repos/acme/ragkit", "title": "Add hybrid search to the retriever", "body": "We will pay a $250 bounty for this, paid via Algora.", "labels": [{"name": "bounty"}], "state": "open"},
+    {"html_url": "https://github.com/ferris/fastparse/issues/3", "repository_url": "https://api.github.com/repos/ferris/fastparse", "title": "Speed up the CSV parser (100 USD)", "body": null, "labels": [{"name": "help wanted"}], "state": "open"},
+    {"html_url": "https://github.com/hobby/tool/issues/7", "repository_url": "https://api.github.com/repos/hobby/tool", "title": "Fix typo in README", "body": "Anyone can help, thanks!", "labels": [{"name": "help wanted"}], "state": "open"},
+    {"html_url": "https://github.com/labelonly/app/issues/1", "repository_url": "https://api.github.com/repos/labelonly/app", "title": "Refactor config loader", "body": "Has the label but says nothing about money.", "labels": [{"name": "freelance"}], "state": "open"}
+  ]
+}
