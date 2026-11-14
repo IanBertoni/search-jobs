@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
+  <channel>
+    <title>Remotive: Software Development</title>
+    <item>
+      <title>Python Automation Developer</title>
+      <company>Acme Ops</company>
+      <location>Worldwide</location>
+      <type>contract</type>
+      <link>https://remotive.com/remote-jobs/software-development/python-automation-developer-1</link>
+      <description><![CDATA[<p>Build Python scrapers and an internal API. 2+ years.</p>]]></description>
+    </item>
+    <item>
+      <title>Senior Python Engineer</title>
+      <company>BigCo</company>
+      <location>Worldwide</location>
+      <type>contract</type>
+      <link>https://remotive.com/remote-jobs/software-development/senior-python-2</link>
+      <description><![CDATA[<p>Python and FastAPI.</p>]]></description>
+    </item>
+    <item>
+      <title>LLM Backend Developer</title>
+      <company>FullCo</company>
+      <location>Worldwide</location>
+      <type>full_time</type>
+      <link>https://remotive.com/remote-jobs/software-development/llm-3</link>
+      <description><![CDATA[<p>LLM and RAG pipelines.</p>]]></description>
+    </item>
+    <item>
+      <title>RAG Engineer</title>
+      <company>YearsCo</company>
+      <location>Worldwide</location>
+      <type>freelance</type>
+      <link>https://remotive.com/remote-jobs/software-development/rag-4</link>
+      <description><![CDATA[<p>LLM and RAG. 5+ years required.</p>]]></description>
+    </item>
+    <item>
+      <title>LLM Data Engineer</title>
+      <company>UsCo</company>
+      <location>USA Only</location>
+      <type>freelance</type>
+      <link>https://remotive.com/remote-jobs/software-development/llm-5</link>
+      <description><![CDATA[<p>Python LLM pipelines.</p>]]></description>
+    </item>
+    <item>
+      <title>Wordpress Designer</title>
+      <company>WebCo</company>
+      <location>Worldwide</location>
+      <type>freelance</type>
+      <link>https://remotive.com/remote-jobs/software-development/wp-6</link>
+      <description><![CDATA[<p>Themes and plugins.</p>]]></description>
+    </item>
+  </channel>
+</rss>
