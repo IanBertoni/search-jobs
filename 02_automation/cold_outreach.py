@@ -24,6 +24,7 @@ from config import (
     setup_logging,
 )
 from scrapers.getonboard_scraper import html_to_text, whole_words
+
 # Base URL for API requests
 ALGOLIA_URL = "https://hn.algolia.com/api/v1"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id="
@@ -32,7 +33,7 @@ FREELANCE_OUTPUT = TRACKING_DIR / "freelance_leads.md"
 TIMEOUT_S = 60
 TOP_N = 20
 MAX_TOKENS = 4096  # gpt-oss reasons before answering
-MAX_YEARS = 5  # "5+ years" or more counts as senior
+MAX_YEARS = 3  # "3+ years" or more counts as senior
 logger = logging.getLogger(__name__)
 
 # ===== EVALUATION RULES: hard filters, applied in _offer() before any LLM call =====
@@ -83,10 +84,23 @@ PROFILE = whole_words(
         "cuda",
         "transformers",
         "senior",
+        "founding",
         "lead",
         "staff",
         "principal",
         "director",
+    ]
+)
+# must say it's junior: a post that doesn't is assumed to want experience
+JUNIOR = whole_words(
+    [
+        "junior",
+        "entry level",
+        "entry-level",
+        "new grad",
+        "trainee",
+        "associate",
+        "apprentice",
     ]
 )
 OFF_TITLE = whole_words(["designer", "sales", "marketing", "product manager"])
@@ -96,7 +110,9 @@ LATAM = whole_words(
     ["latam", "latin america", "south america", "americas", "argentina"]
 )
 # a post naming full-time stays full-time even if it also takes contractors
-CONTRACT = whole_words(["contract", "contractor", "freelance", "part-time", "part time"])
+CONTRACT = whole_words(
+    ["contract", "contractor", "freelance", "part-time", "part time"]
+)
 FULL_TIME = whole_words(["full-time", "full time", "fulltime"])
 BUDGET = re.compile(
     r"\$\s?\d[\d,.]*k?(?:\s*[-–]\s*\$?\d[\d,.]*k?)?"
@@ -169,14 +185,18 @@ def _dealbreaker(text: str) -> bool:
     )
 
 
-def _offer(comment: dict) -> dict | None:
+def _offer(comment: dict, junior_only: bool = True) -> dict | None:
     # HN never closes <p>, and html_to_text only breaks lines on closing tags
     text = html_to_text((comment.get("text") or "").replace("<p>", "\n"))
     if (
         not text
         or text.startswith("UPDATE")  # "UPDATE: no longer hiring" banners
         or CLOSED.search(text)
-        or not (REMOTE.search(text) and TARGET_ROLE.search(text))
+        or not (
+            REMOTE.search(text)
+            and TARGET_ROLE.search(text)
+            and (JUNIOR.search(text) or not junior_only)
+        )
         or _dealbreaker(text)
     ):
         return None
@@ -196,9 +216,9 @@ def _offer(comment: dict) -> dict | None:
     }
 
 
-def parse_offers(thread: dict) -> list[dict]:
+def parse_offers(thread: dict, junior_only: bool = True) -> list[dict]:
     """Top-level comments only: replies are questions, not job posts."""
-    offers = (_offer(c) for c in thread.get("children", []))
+    offers = (_offer(c, junior_only) for c in thread.get("children", []))
     return [o for o in offers if o]
 
 
@@ -209,12 +229,12 @@ def split_by_type(offers: list[dict]) -> tuple[list[dict], list[dict]]:
     return full_time, freelance
 
 
-def fetch_offers(session: requests.Session) -> list[dict]:
+def fetch_offers(session: requests.Session, junior_only: bool = True) -> list[dict]:
     thread_id = latest_hiring_thread(session)
     time.sleep(REQUEST_DELAY_S)
     response = session.get(f"{ALGOLIA_URL}/items/{thread_id}", timeout=TIMEOUT_S)
     response.raise_for_status()
-    return parse_offers(response.json())
+    return parse_offers(response.json(), junior_only)
 
 
 # ===== STEP 3 - ACT: the Groq LLM call that drafts the email =====
