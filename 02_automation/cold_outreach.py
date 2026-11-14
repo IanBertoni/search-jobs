@@ -1,7 +1,9 @@
 """Cold outreach to founders: HN "Who is hiring?" -> email drafts with Groq.
 
 Only drafts the text: sending stays manual (see CLAUDE.md), no smtplib here.
-Output: 03_tracking/outreach/founders_outreach.md
+Contract/freelance posts skip Groq: you apply inside the platform, no email needed.
+Output: 03_tracking/outreach/founders_outreach.md (full-time emails)
+        03_tracking/freelance_leads.md (contract/freelance table)
 Usage (from 02_automation/): python cold_outreach.py [--top N] [--verbose]
 """
 
@@ -26,6 +28,7 @@ from scrapers.getonboard_scraper import html_to_text, whole_words
 ALGOLIA_URL = "https://hn.algolia.com/api/v1"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id="
 OUTPUT = TRACKING_DIR / "outreach" / "founders_outreach.md"
+FREELANCE_OUTPUT = TRACKING_DIR / "freelance_leads.md"
 TIMEOUT_S = 60
 TOP_N = 20
 MAX_TOKENS = 4096  # gpt-oss reasons before answering
@@ -92,6 +95,16 @@ REMOTE = whole_words(["remote", "worldwide", "latam"])
 LATAM = whole_words(
     ["latam", "latin america", "south america", "americas", "argentina"]
 )
+# a post naming full-time stays full-time even if it also takes contractors
+CONTRACT = whole_words(["contract", "contractor", "freelance", "part-time", "part time"])
+FULL_TIME = whole_words(["full-time", "full time", "fulltime"])
+BUDGET = re.compile(
+    r"\$\s?\d[\d,.]*k?(?:\s*[-–]\s*\$?\d[\d,.]*k?)?"
+    r"(?:\s*(?:/|per\s+)\s*(?:hour|hr|h\b|month|mo\b|year|yr))?"
+    r"|\d+\s*\+?\s*(?:hours|hrs?)\s*(?:/|per\s+|a\s+)\s*(?:week|wk)",
+    re.IGNORECASE,
+)
+REMOTE_FIRST = whole_words(["remote", "worldwide"])
 DANAGRO = re.compile(r"danagro precision", re.IGNORECASE)
 AI_TONE = re.compile(
     r"I am writing to|express my interest|I hope this (?:email|message) finds you",
@@ -170,6 +183,7 @@ def _offer(comment: dict) -> dict | None:
     # HN convention: first line is "Company | Role | Location | ..."
     fields = [f.strip() for f in text.splitlines()[0].split("|")]
     remote = "Remote/LATAM" if LATAM.search(text) else "Remote"
+    freelance = CONTRACT.search(text) and not FULL_TIME.search(text)
     return {
         "empresa": fields[0],
         "rol": fields[1] if len(fields) > 1 else "?",
@@ -177,6 +191,8 @@ def _offer(comment: dict) -> dict | None:
         "autor": comment.get("author") or "there",
         "link": f"{HN_ITEM_URL}{comment['id']}",
         "texto": text,
+        "tipo": "freelance" if freelance else "full-time",
+        "presupuesto": ", ".join(dict.fromkeys(BUDGET.findall(text))) or "?",
     }
 
 
@@ -184,6 +200,13 @@ def parse_offers(thread: dict) -> list[dict]:
     """Top-level comments only: replies are questions, not job posts."""
     offers = (_offer(c) for c in thread.get("children", []))
     return [o for o in offers if o]
+
+
+def split_by_type(offers: list[dict]) -> tuple[list[dict], list[dict]]:
+    """(full-time -> Groq email, contract/freelance -> leads table, no Groq)."""
+    full_time = [o for o in offers if o["tipo"] == "full-time"]
+    freelance = [o for o in offers if o["tipo"] == "freelance"]
+    return full_time, freelance
 
 
 def fetch_offers(session: requests.Session) -> list[dict]:
@@ -259,6 +282,21 @@ def render(drafts: list[dict]) -> str:
     return "\n".join(blocks)
 
 
+def render_freelance(leads: list[dict]) -> str:
+    # stable sort: "Remote"/"Worldwide" first, LATAM-only after
+    ordered = sorted(leads, key=lambda o: not REMOTE_FIRST.search(o["texto"]))
+    rows = [
+        f"| {o['empresa']} | {o['rol']} | {o['link']} | {o['presupuesto']} |"
+        for o in ordered
+    ]
+    header = [
+        "# Freelance / Contract leads (HN Who is hiring)\n",
+        "| Empresa | Rol | Link | Presupuesto/Horas |",
+        "|---|---|---|---|",
+    ]
+    return "\n".join(header + rows) + "\n"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--top", type=int, default=TOP_N, help="max emails")
@@ -268,11 +306,13 @@ def main() -> None:
     if not GROQ_API_KEY:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
-    offers = fetch_offers(session)[: args.top]
-    drafts = write_emails(offers, session)
+    full_time, freelance = split_by_type(fetch_offers(session)[: args.top])
+    drafts = write_emails(full_time, session)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(render(drafts), encoding="utf-8")
-    print(f"{len(drafts)}/{len(offers)} emails -> {OUTPUT}")
+    FREELANCE_OUTPUT.write_text(render_freelance(freelance), encoding="utf-8")
+    print(f"{len(drafts)}/{len(full_time)} emails full-time -> {OUTPUT}")
+    print(f"{len(freelance)} leads freelance -> {FREELANCE_OUTPUT}")
 
 
 if __name__ == "__main__":
