@@ -20,6 +20,7 @@ import time
 
 import requests
 
+from applied import drop_applied, load_applied
 from config import (
     GROQ_API_KEY,
     GROQ_BASE_URL,
@@ -394,7 +395,9 @@ def main() -> None:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
     full_time, freelance = split_by_type(
-        fetch_offers(session, junior_only=not args.all_levels)[: args.top]
+        drop_applied(
+            fetch_offers(session, junior_only=not args.all_levels), load_applied()
+        )[: args.top]
     )
     drafts = write_emails(full_time, session)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)

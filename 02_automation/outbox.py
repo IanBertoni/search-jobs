@@ -20,6 +20,7 @@ from pathlib import Path
 
 import requests
 
+from applied import drop_applied, load_applied
 from ats_radar import VERDICT_ORDER, candidates, fetch_all, screen
 from config import GROQ_API_KEY, TRACKING_DIR, setup_logging
 from pitch import OFFER_CHARS, draft, load_system_prompt
@@ -130,7 +131,7 @@ def render(state: dict) -> str:
 def build(session: requests.Session) -> dict:
     """ATS radar -> new pitches, then save the state and rewrite OUTBOX.md."""
     system = load_system_prompt()
-    jobs = candidates(fetch_all(session))
+    jobs = drop_applied(candidates(fetch_all(session)), load_applied())
     state = update(jobs, load_state(STATE), session, system)
     save_state(STATE, state)
     OUTPUT.write_text(render(state), encoding="utf-8")

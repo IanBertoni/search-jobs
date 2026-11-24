@@ -148,6 +148,7 @@ def watch(tmp_path, monkeypatch, telegram):
     monkeypatch.setattr(radar_watch, "NOTIFIED", tmp_path / "notified.json")
     monkeypatch.setattr(radar_watch, "load_system_prompt", lambda: "SYS")
     monkeypatch.setattr(radar_watch, "draft", lambda *_a: "PITCH")
+    monkeypatch.setattr(radar_watch, "load_applied", dict)  # not your real list
     return tmp_path
 
 
@@ -194,3 +195,16 @@ def test_load_notified_starts_empty_when_corrupt(watch, caplog):
 
     assert radar_watch._load_notified() == []
     assert "corrupt" in caplog.text
+
+
+def test_run_never_alerts_a_company_in_applied_txt(watch, monkeypatch):
+    offers = [offer(2), offer(1)]
+    monkeypatch.setattr(radar_watch, "fetch_hn_offers", lambda _s: offers)
+    monkeypatch.setattr(radar_watch, "GROQ_API_KEY", "key")
+    monkeypatch.setattr(radar_watch, "load_applied", lambda: {"acme 2": "rechazado"})
+    session = ok_session()
+
+    summary = radar_watch.run(session)
+
+    assert summary["nuevos"] == 1
+    assert "Acme 1" in session.post.call_args.kwargs["json"]["text"]

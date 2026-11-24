@@ -164,6 +164,7 @@ def test_build_runs_the_ats_radar_saves_state_and_writes_the_outbox(
     monkeypatch.setattr(outbox, "load_system_prompt", lambda: "SYS")
     monkeypatch.setattr(outbox, "screen", fake_screen({"a": "apply"}))
     monkeypatch.setattr(outbox, "draft", lambda *_a: "THE PITCH")
+    monkeypatch.setattr(outbox, "load_applied", dict)
 
     state = outbox.build(MagicMock())
 
@@ -171,3 +172,24 @@ def test_build_runs_the_ats_radar_saves_state_and_writes_the_outbox(
     saved = json.loads((tmp_path / "state.json").read_text("utf-8"))
     assert saved["order"] == [job("a")["link"]]
     assert "THE PITCH" in (tmp_path / "OUTBOX.md").read_text("utf-8")
+
+
+def test_build_skips_companies_in_applied_txt_before_groq(tmp_path, monkeypatch):
+    monkeypatch.setattr(outbox, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(outbox, "OUTPUT", tmp_path / "OUTBOX.md")
+    monkeypatch.setattr(outbox, "fetch_all", lambda _s: [job("a"), job("posthog")])
+    monkeypatch.setattr(outbox, "candidates", lambda jobs: jobs)
+    monkeypatch.setattr(outbox, "load_system_prompt", lambda: "SYS")
+    monkeypatch.setattr(outbox, "load_applied", lambda: {"posthog": "aplicado"})
+    screened = []
+
+    def screen(jobs, _session):
+        screened.extend(j["empresa"] for j in jobs)
+        return [{**j, "verdict": "apply", "reason": "ok"} for j in jobs]
+
+    monkeypatch.setattr(outbox, "screen", screen)
+    monkeypatch.setattr(outbox, "draft", lambda *_a: "P")
+
+    outbox.build(MagicMock())
+
+    assert screened == ["a"]

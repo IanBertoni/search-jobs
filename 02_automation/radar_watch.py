@@ -15,6 +15,7 @@ import logging
 
 import requests
 
+from applied import drop_applied, load_applied
 from config import (
     GROQ_API_KEY,
     TELEGRAM_BOT_TOKEN,
@@ -109,7 +110,7 @@ def _system_prompt() -> str | None:
 
 
 def run(session: requests.Session) -> dict:
-    offers = fetch_hn_offers(session)
+    offers = drop_applied(fetch_hn_offers(session), load_applied())
     notified = _load_notified()
     new = fresh(offers, set(notified))
     alerted = notify(new, _system_prompt() if new else None, session)

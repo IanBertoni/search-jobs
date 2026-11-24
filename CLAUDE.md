@@ -24,6 +24,7 @@
 - Filtro: el de `cold_outreach.py` sin la regla de "junior": remoto, un rol objetivo (Python, backend, data, AI…), sin dealbreakers (US only / "Remote (US)" / visa, Senior/Lead/Staff, 3+ años, PhD). En el hilo de freelancers solo cuentan los posts "SEEKING FREELANCER" (los "SEEKING WORK" son competencia).
 - Todos los pitches salen de `02_automation/pitch.py`, que usa `01_assets/pitch/giga_prompt_private.txt` **tal cual** como system prompt (nada de prompts fijos con stack forzado).
 - `02_automation/outbox.py`: leads del ATS radar → Groq juzga solo las ofertas nuevas → pitch con el giga prompt → `03_tracking/OUTBOX.md`. Estado en `03_tracking/ats_outbox_state.json`; `python outbox.py --sent <link>` saca una oferta del outbox.
+- `03_tracking/applied.txt` (`empresa | estado`, ignorado por git): `applied.py` saca esas empresas de `cold_outreach.py`, `radar_watch.py` y `outbox.py` antes de llamar a Groq. Agregá ahí cada postulación, rechazo o empresa no elegible.
 - `cold_outreach.py --gmail-drafts` crea borradores en Gmail (scope `gmail.compose`, nunca envía). OAuth en `02_automation/.secrets/` (ignorado por git).
 
 ## Freelance Radar (desconectado de las alertas; solo manual)
