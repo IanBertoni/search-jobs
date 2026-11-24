@@ -7,6 +7,7 @@ Setup: README "Gmail drafts", or cold_outreach.py --gmail-drafts --help.
 """
 
 import base64
+import os
 import re
 from email.message import EmailMessage
 from pathlib import Path
@@ -62,6 +63,15 @@ def create_draft(
     return response.json()["id"]
 
 
+def save_token(token_json: str) -> None:
+    """Owner-only folder and file (0700/0600): the token can write to your Gmail."""
+    SECRETS_DIR.mkdir(mode=0o700, exist_ok=True)
+    fd = os.open(TOKEN, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as file:
+        file.write(token_json)
+    os.chmod(TOKEN, 0o600)  # a token written by an older run gets tightened too
+
+
 def gmail_session() -> requests.Session:  # pragma: no cover - needs a browser
     """Authorized session; opens the OAuth consent page the first time."""
     from google.auth.transport.requests import AuthorizedSession, Request
@@ -80,6 +90,5 @@ def gmail_session() -> requests.Session:  # pragma: no cover - needs a browser
             raise FileNotFoundError(f"OAuth client missing: {CLIENT_SECRET}")
         flow = InstalledAppFlow.from_client_secrets_file(str(CLIENT_SECRET), SCOPES)
         creds = flow.run_local_server(port=0)
-    SECRETS_DIR.mkdir(exist_ok=True)
-    TOKEN.write_text(creds.to_json(), encoding="utf-8")
+    save_token(creds.to_json())
     return AuthorizedSession(creds)

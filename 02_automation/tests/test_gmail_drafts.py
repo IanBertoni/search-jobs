@@ -60,3 +60,20 @@ def test_create_draft_raises_on_an_api_error():
 
     with pytest.raises(RuntimeError, match="403"):
         create_draft(session, None, "s", "b")
+
+
+def test_save_token_writes_an_owner_only_file(tmp_path, monkeypatch):
+    import os
+    import stat
+
+    import gmail_drafts
+
+    monkeypatch.setattr(gmail_drafts, "SECRETS_DIR", tmp_path / ".secrets")
+    monkeypatch.setattr(gmail_drafts, "TOKEN", tmp_path / ".secrets" / "token.json")
+
+    gmail_drafts.save_token('{"token": "a"}')
+    gmail_drafts.save_token('{"token": "b"}')
+
+    assert gmail_drafts.TOKEN.read_text("utf-8") == '{"token": "b"}'
+    if os.name == "posix":  # Windows ignores mode bits: the profile ACLs apply
+        assert stat.S_IMODE(gmail_drafts.TOKEN.stat().st_mode) == 0o600
