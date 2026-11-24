@@ -166,8 +166,12 @@ Rules:
   email finds you well", "passionate", "excited to", "leverage", bullet points.
 - Start with "Hey <author>," using the HN username given, then name the role.
 - Mention: no CS degree, but built a production RAG pipeline in Python, and
-  Rust work at DanAgro Precision (always written exactly like that). Only these
-  facts about Ian, invent nothing else.
+  Rust work at DanAgro Precision (always written exactly like that). For
+  backend, data pipeline or distributed systems roles you may add: he runs
+  inmo-monitor in production (1,600+ tests, Telegram alerts); its code is
+  private, the architecture is public at
+  github.com/IanBertoni/inmo-monitor-showcase. Only these facts about Ian,
+  invent nothing else.
 - Add ONE specific line about what the company does, taken from the post (e.g.
   "been following PostHog's open-source product analytics approach").
 - The Role field may be wrong ("Full-Time", "Remote", a city): if so, infer the

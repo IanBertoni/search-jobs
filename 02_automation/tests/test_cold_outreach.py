@@ -420,3 +420,9 @@ def test_region_rule_also_drops_contract_leads_and_radar_alerts():
     _, contract = split_by_type(offers)
 
     assert contract == []
+
+
+def test_prompt_can_cite_inmo_monitor_through_its_public_showcase():
+    assert "inmo-monitor" in SYSTEM_PROMPT
+    assert "github.com/IanBertoni/inmo-monitor-showcase" in SYSTEM_PROMPT
+    assert "private" in SYSTEM_PROMPT

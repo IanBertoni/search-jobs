@@ -18,6 +18,10 @@
 - Para este proyecto, la cobertura mínima de tests es 60%, no 80%. Los scrapers se testean con HTML/JSON guardado en tests/fixtures/, no contra sitios reales. No se requieren tests E2E; alcanzan unit tests y tests de integración básicos. La prioridad es velocidad de iteración sobre rigor de producción.
 - Scraping: respetar robots.txt y términos de cada sitio, rate-limit, preferir APIs o RSS públicos.
 
+## Perfil en los pitches
+
+- `inmo-monitor` tiene el código privado por confidencialidad, pero la arquitectura y las decisiones técnicas son públicas en `github.com/IanBertoni/inmo-monitor-showcase`. En pitches (sobre todo backend, data pipelines o sistemas distribuidos) se cita ese link; nunca "see the code". Esta regla está en `giga_prompt_private.txt` (Regla 4) y en el prompt de `cold_outreach.py`.
+
 ## HN Radar y alertas (cada 30 min)
 
 - `02_automation/radar_watch.py` es el punto de entrada del Programador de Tareas: corre `hn_radar.py` (hilos "Who is hiring?" y "Freelancer? Seeking freelancer?" vía la API de Algolia), redacta un pitch con Groq por cada post nuevo (máximo 5 por corrida, los más nuevos primero) y manda una alerta de Telegram con el link y el pitch. Links avisados en `03_tracking/hn_notified.json`. Necesita `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env`.

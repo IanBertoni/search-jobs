@@ -46,7 +46,7 @@ Each module follows the same loop: **observe → evaluate → act → check the 
 
 LLMs are confidently wrong, so the agent never trusts a reply as is.
 
-- **399 automated tests** (pytest) cover the scrapers, filters, matcher and
+- **400 automated tests** (pytest) cover the scrapers, filters, matcher and
   guardrails. Scrapers run on saved API/RSS fixtures, and the LLM is mocked, so the suite
   runs offline in about 3 seconds.
 - **Deterministic filter before the LLM.** Hard rules drop posts that
@@ -99,7 +99,7 @@ Python 3 · requests · pandas · Groq (`openai/gpt-oss-120b`) · pytest + pytes
 pip install -r requirements.txt
 cd 02_automation
 cp .env.example .env                      # add GROQ_API_KEY
-python -m pytest -q                       # 399 tests, offline
+python -m pytest -q                       # 400 tests, offline
 python -m scrapers.getonboard_scraper     # collect leads
 python tailoring_engine.py --top 5        # pitch + CV per lead
 python cold_outreach.py --top 5           # founder emails from HN (--gmail-drafts)
