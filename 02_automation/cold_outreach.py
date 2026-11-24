@@ -132,6 +132,8 @@ BUDGET = re.compile(
     re.IGNORECASE,
 )
 REMOTE_FIRST = whole_words(["remote", "worldwide"])
+# "SKIP", "SKIP: reason" or "SKIP - reason": only at the start of the reply
+SKIP = re.compile(r"SKIP\b[\s:\-–]*(.*)", re.DOTALL)
 DANAGRO = re.compile(r"danagro precision", re.IGNORECASE)
 AI_TONE = re.compile(
     r"I am writing to|express my interest|I hope this (?:email|message) finds you",
@@ -153,9 +155,13 @@ Rules:
   "been following PostHog's open-source product analytics approach").
 - The Role field may be wrong ("Full-Time", "Remote", a city): if so, infer the
   real role from the post text.
-- Reply with exactly SKIP and nothing else (no email) if the post mentions visa
-  or citizenship restrictions, asks for PyTorch, Deep Learning or a PhD, or if
-  the role is NOT software/application development with Python.
+- Reply with exactly "SKIP: <reason in a few words>" and no email if the post
+  requires a visa, citizenship or residency Ian lacks (US, EU/EEA, UK...),
+  asks for PyTorch, training Deep Learning models or a PhD, or if the role is
+  NOT hands-on software/application development with Python.
+- Building AI agents, multi-agent systems, tool use, RAG, LLM or GenAI products
+  in Python IS software development: never SKIP a role for that. "Deep Agents"
+  is an agent framework, not Deep Learning.
 - Include the GitHub: github.com/IanBertoni
 - Say he's in Argentina, fully remote. End asking for a quick chat.
 Example tone: "Hey jane, saw you are hiring for a Data Engineer. I don't have a CS
@@ -293,11 +299,13 @@ def write_emails(offers: list[dict], session: requests.Session) -> list[dict]:
             logger.error("%s | %s: %s", offer["empresa"], offer["rol"], error)
             continue
         # guardrail 1: the LLM itself vetoes the offer (visa, PhD, non-dev role)
-        if email == "SKIP":
-            logger.info(
-                "%s | %s: SKIP de Groq (rol o restricción)",
+        skip = SKIP.match(email)
+        if skip:
+            logger.warning(
+                "%s | %s: SKIP de Groq: %s",
                 offer["empresa"],
                 offer["rol"],
+                skip.group(1).strip() or "sin motivo",
             )
             continue
         # guardrail 2: the model lowercases it to sound casual; the company name must stay right

@@ -344,3 +344,32 @@ def test_parse_keeps_remote_us_plus_other_regions():
     post = "Acme | Python Engineer | Remote (US, LATAM) | Contract<p>Python backend."
 
     assert len(parse_offers(raw_comment(post), junior_only=False)) == 1
+
+
+def test_prompt_asks_for_a_skip_reason_and_keeps_ai_agent_roles():
+    assert "SKIP: <reason" in SYSTEM_PROMPT
+    for role in ("AI agents", "multi-agent", "RAG", "GenAI"):
+        assert role in SYSTEM_PROMPT
+    assert "Deep Agents" in SYSTEM_PROMPT  # a framework name, not Deep Learning
+
+
+def test_write_emails_logs_why_groq_skipped_an_offer(caplog):
+    offers = parse_offers(ITEMS)
+    session = json_session(
+        groq_reply("SKIP: requires EEA residency"),
+        groq_reply(),
+        groq_reply("SKIP - asks for a PhD"),
+    )
+
+    drafts = write_emails(offers, session)
+
+    assert [d["empresa"] for d in drafts] == ["Ferrous"]
+    assert "requires EEA residency" in caplog.text
+    assert "asks for a PhD" in caplog.text
+
+
+def test_write_emails_keeps_an_email_that_only_mentions_skip_later():
+    offers = parse_offers(ITEMS)[:1]
+    session = json_session(groq_reply("Hey bob, happy to skip the small talk."))
+
+    assert len(write_emails(offers, session)) == 1
