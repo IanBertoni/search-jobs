@@ -13,6 +13,8 @@ venv/
 .env.*
 !.env.example
 **/.env
+# Gmail OAuth client secret and token (gmail_drafts.py)
+**/.secrets/
 # personal data: job applications, leads, tailored CVs
 03_tracking/
 01_assets/cv/*.pdf

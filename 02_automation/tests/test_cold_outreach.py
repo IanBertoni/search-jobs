@@ -282,3 +282,65 @@ def test_render_freelance_puts_remote_or_worldwide_first_in_a_table():
     assert "| Empresa | Rol | Link | Presupuesto/Horas |" in text
     assert text.index("World") < text.index("Latam")
     assert "| ? |" in text  # no budget in the post
+
+
+def gmail_draft(link: str, texto: str = "Email jobs@acme.io") -> dict:
+    return {
+        "empresa": "Acme",
+        "rol": "Data Engineer",
+        "link": link,
+        "texto": texto,
+        "email": "Hey jane, saw the Data Engineer role.",
+    }
+
+
+def test_subject_names_the_role_and_company():
+    from cold_outreach import subject_for
+
+    assert subject_for(gmail_draft("x")) == "Data Engineer @ Acme (HN Who is hiring)"
+    assert subject_for({**gmail_draft("x"), "rol": "?"}) == "Acme (HN Who is hiring)"
+
+
+def test_push_gmail_drafts_creates_one_draft_per_new_email_and_never_sends():
+    from cold_outreach import push_gmail_drafts
+
+    session = MagicMock()
+    session.post.return_value = MagicMock(ok=True, json=lambda: {"id": "d1"})
+    drafts = [gmail_draft("hn/1"), gmail_draft("hn/2", texto="no address here")]
+
+    created = push_gmail_drafts(drafts, session, done={"hn/0"})
+
+    assert created == ["hn/1", "hn/2"]
+    urls = [c.args[0] for c in session.post.call_args_list]
+    assert all(url.endswith("/drafts") for url in urls)
+    assert not any("send" in url for url in urls)
+
+
+def test_push_gmail_drafts_skips_done_links_and_logs_failures(caplog):
+    from cold_outreach import push_gmail_drafts
+
+    session = MagicMock()
+    session.post.side_effect = [
+        MagicMock(ok=False, status_code=403, text="denied"),
+        MagicMock(ok=True, json=lambda: {"id": "d2"}),
+    ]
+    drafts = [gmail_draft("hn/0"), gmail_draft("hn/1"), gmail_draft("hn/2")]
+
+    assert push_gmail_drafts(drafts, session, done={"hn/0"}) == ["hn/2"]
+    assert "403" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "location",
+    ["REMOTE (US)", "Remote (USA)", "remote (U.S. only)", "Remote (US-only)"],
+)
+def test_parse_drops_remote_us_posts(location):
+    post = f"Acme | Python Engineer | {location} | Contract<p>Python backend."
+
+    assert parse_offers(raw_comment(post), junior_only=False) == []
+
+
+def test_parse_keeps_remote_us_plus_other_regions():
+    post = "Acme | Python Engineer | Remote (US, LATAM) | Contract<p>Python backend."
+
+    assert len(parse_offers(raw_comment(post), junior_only=False)) == 1

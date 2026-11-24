@@ -1,13 +1,18 @@
 """Cold outreach to founders: HN "Who is hiring?" -> email drafts with Groq.
 
 Only drafts the text: sending stays manual (see CLAUDE.md), no smtplib here.
+--gmail-drafts also leaves each email as a Gmail draft (gmail_drafts.py, API scope
+gmail.compose): you open it, read it and click Send yourself.
 Contract/freelance posts skip Groq: you apply inside the platform, no email needed.
 Output: 03_tracking/outreach/founders_outreach.md (full-time emails)
         03_tracking/hn_contract_leads.md (contract/freelance table)
-Usage (from 02_automation/): python cold_outreach.py [--top N] [--verbose]
+        03_tracking/outreach/gmail_drafted.json (posts already drafted in Gmail)
+Usage (from 02_automation/): python cold_outreach.py [--top N] [--gmail-drafts]
+                             [--verbose]
 """
 
 import argparse
+import json
 import logging
 import re
 import sys
@@ -23,6 +28,7 @@ from config import (
     TRACKING_DIR,
     setup_logging,
 )
+from gmail_drafts import create_draft, find_email, gmail_session
 from scrapers.getonboard_scraper import html_to_text, whole_words
 
 # Base URL for API requests
@@ -30,6 +36,7 @@ ALGOLIA_URL = "https://hn.algolia.com/api/v1"
 HN_ITEM_URL = "https://news.ycombinator.com/item?id="
 OUTPUT = TRACKING_DIR / "outreach" / "founders_outreach.md"
 FREELANCE_OUTPUT = TRACKING_DIR / "hn_contract_leads.md"
+GMAIL_DRAFTED = TRACKING_DIR / "outreach" / "gmail_drafted.json"
 TIMEOUT_S = 60
 TOP_N = 20
 MAX_TOKENS = 4096  # gpt-oss reasons before answering
@@ -69,6 +76,10 @@ VISA = whole_words(
         "defense eligibility",
         "u.s. defense",
     ]
+)
+# "Remote (US)" is US-only in practice; "Remote (US, LATAM)" is not
+REMOTE_US = re.compile(
+    r"remote\s*\(\s*(?:us|usa|u\.s\.?)(?:[\s-]*only)?\s*\)", re.IGNORECASE
 )
 ON_SITE = whole_words(["uk", "london", "europe", "eu", "ireland", "germany", "hybrid"])
 GLOBAL = whole_words(["worldwide", "global", "latam"])  # lifts ON_SITE
@@ -178,6 +189,7 @@ def _dealbreaker(text: str) -> bool:
     off_title = OFF_TITLE.search(text.splitlines()[0])
     return bool(
         VISA.search(text)
+        or REMOTE_US.search(text)
         or PROFILE.search(text)
         or on_site
         or off_title
@@ -322,9 +334,46 @@ def render_freelance(leads: list[dict]) -> str:
     return "\n".join(header + rows) + "\n"
 
 
+# ===== STEP 5 - HAND OFF: Gmail drafts, Send stays a human click =====
+
+
+def subject_for(draft: dict) -> str:
+    role = "" if draft["rol"] == "?" else f"{draft['rol']} @ "
+    return f"{role}{draft['empresa']} (HN Who is hiring)"
+
+
+def push_gmail_drafts(
+    drafts: list[dict], session: requests.Session, done: set[str]
+) -> list[str]:
+    """One Gmail draft per email not drafted before; links created (none sent)."""
+    created = []
+    for d in drafts:
+        if d["link"] in done:
+            continue
+        try:
+            create_draft(session, find_email(d["texto"]), subject_for(d), d["email"])
+        except (requests.RequestException, RuntimeError, KeyError) as error:
+            logger.error("gmail draft %s: %s", d["link"], error)
+            continue
+        created.append(d["link"])
+    return created
+
+
+def _gmail_drafts(drafts: list[dict]) -> int:
+    done = (
+        json.loads(GMAIL_DRAFTED.read_text("utf-8")) if GMAIL_DRAFTED.exists() else []
+    )
+    created = push_gmail_drafts(drafts, gmail_session(), set(done))
+    GMAIL_DRAFTED.write_text(json.dumps(done + created), encoding="utf-8")
+    return len(created)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--top", type=int, default=TOP_N, help="max emails")
+    parser.add_argument(
+        "--gmail-drafts", action="store_true", help="also create Gmail drafts"
+    )
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     args = parser.parse_args()
     setup_logging(args.verbose)
@@ -338,6 +387,8 @@ def main() -> None:
     FREELANCE_OUTPUT.write_text(render_freelance(freelance), encoding="utf-8")
     print(f"{len(drafts)}/{len(full_time)} emails full-time -> {OUTPUT}")
     print(f"{len(freelance)} leads freelance -> {FREELANCE_OUTPUT}")
+    if args.gmail_drafts:
+        print(f"{_gmail_drafts(drafts)} borradores nuevos en Gmail (sin enviar)")
 
 
 if __name__ == "__main__":

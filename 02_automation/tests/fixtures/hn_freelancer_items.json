@@ -1,0 +1,7 @@
+{"id": 46000002, "children": [
+ {"id": 301, "author": "dev1", "text": "SEEKING WORK | Python developer | Remote<p>Hire me.", "children": []},
+ {"id": 302, "author": "acme_cto", "text": "SEEKING FREELANCER | Acme | Remote<p>Need a Python developer to build a scraping pipeline. $60/hr. Email cto@acme.io", "children": []},
+ {"id": 303, "author": "corp", "text": "SEEKING FREELANCER | BigCo | Remote<p>Python backend contractor, US citizens only.", "children": []},
+ {"id": 304, "author": "shop", "text": "Seeking freelancer | Shopify store | Remote<p>Looking for a designer for our logo.", "children": []},
+ {"id": 305, "author": "data_co", "text": "seeking freelancer | DataCo | Remote, worldwide<p>Python data engineer for a 2-month ETL contract.", "children": []}
+]}

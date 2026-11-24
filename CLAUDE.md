@@ -18,12 +18,18 @@
 - Para este proyecto, la cobertura mínima de tests es 60%, no 80%. Los scrapers se testean con HTML/JSON guardado en tests/fixtures/, no contra sitios reales. No se requieren tests E2E; alcanzan unit tests y tests de integración básicos. La prioridad es velocidad de iteración sobre rigor de producción.
 - Scraping: respetar robots.txt y términos de cada sitio, rate-limit, preferir APIs o RSS públicos.
 
-## Freelance Radar
+## HN Radar y alertas (cada 30 min)
 
-- Fuente principal: `02_automation/freelancer_radar.py`, que usa la API JSON pública de Freelancer.com (`/api/projects/0.1/projects/active/`). Corre las queries python/scraping/automation/data/rag, espera 3 s entre requests y deduplica por id.
+- `02_automation/radar_watch.py` es el punto de entrada del Programador de Tareas: corre `hn_radar.py` (hilos "Who is hiring?" y "Freelancer? Seeking freelancer?" vía la API de Algolia), redacta un pitch con Groq por cada post nuevo (máximo 5 por corrida, los más nuevos primero) y manda una alerta de Telegram con el link y el pitch. Links avisados en `03_tracking/hn_notified.json`. Necesita `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env`.
+- Filtro: el de `cold_outreach.py` sin la regla de "junior": remoto, un rol objetivo (Python, backend, data, AI…), sin dealbreakers (US only / "Remote (US)" / visa, Senior/Lead/Staff, 3+ años, PhD). En el hilo de freelancers solo cuentan los posts "SEEKING FREELANCER" (los "SEEKING WORK" son competencia).
+- Todos los pitches salen de `02_automation/pitch.py`, que usa `01_assets/pitch/giga_prompt_private.txt` **tal cual** como system prompt (nada de prompts fijos con stack forzado).
+- `02_automation/outbox.py`: leads del ATS radar → Groq juzga solo las ofertas nuevas → pitch con el giga prompt → `03_tracking/OUTBOX.md`. Estado en `03_tracking/ats_outbox_state.json`; `python outbox.py --sent <link>` saca una oferta del outbox.
+- `cold_outreach.py --gmail-drafts` crea borradores en Gmail (scope `gmail.compose`, nunca envía). OAuth en `02_automation/.secrets/` (ignorado por git).
+
+## Freelance Radar (desconectado de las alertas; solo manual)
+
+- Fuente: `02_automation/freelancer_radar.py`, que usa la API JSON pública de Freelancer.com (`/api/projects/0.1/projects/active/`). Corre las queries python/scraping/automation/data/rag, espera 3 s entre requests y deduplica por id.
 - Filtro duro: menos de 25 bids (primero los de menos de 5, después el resto; dentro de cada grupo, los más nuevos primero), presupuesto mínimo >= USD 50 (USD 15/h si es por hora; se convierte con `currency.exchange_rate`), una keyword del perfil, nada de Senior/Lead/UX-UI en el título y al menos un skill de dev (`DEV_SKILLS`). El radar en sí no usa LLM: deja los datos crudos (tabla + descripción completa) en `03_tracking/freelancer_leads.md`.
-- `02_automation/outbox.py` redacta con Groq un pitch por candidato usando `01_assets/pitch/giga_prompt_private.txt` **tal cual** como system prompt (nada de prompts fijos con stack forzado) y lo deja en `03_tracking/OUTBOX.md`. Estado en `03_tracking/outbox_state.json`: cada proyecto se redacta una vez; `python outbox.py --sent <id>` lo saca del outbox. El bid se manda a mano.
-- `02_automation/radar_watch.py` es el punto de entrada del Programador de Tareas (cada 30 min): radar + outbox + alerta de Telegram (con el pitch) por cada proyecto nuevo con menos de 5 bids. Necesita `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` en `.env`; ids avisados en `03_tracking/notified.json`.
 - Fallback con `reverse-api-engineer` (rae), instalado con `uv tool install reverse-api-engineer` y skill en `.claude/skills/reverse-api-engineer/`. Se usa solo si la API de Freelancer.com empieza a responder 403/429 (el radar lo loguea) o si un portal sin API **permite** el acceso automatizado:
   1. Preflight, sin browser ni costo: `reverse-api-engineer agent -p "fetch active projects with title, budget, bid count and link, including pagination" -u <url> --headless --dry-run`
   2. Captura (cobra tokens de Claude y tarda minutos; reportar `usage.total_cost_usd`): el mismo comando sin `--dry-run`, con `--json-stream > rae-run.ndjson` en background.
