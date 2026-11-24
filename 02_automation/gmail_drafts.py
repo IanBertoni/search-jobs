@@ -3,7 +3,8 @@
 OAuth scope gmail.compose; the client secret and the token live in
 02_automation/.secrets/ (git-ignored). The first run opens the browser to
 authorize; later runs refresh the token on their own.
-Setup: README "Gmail drafts", or cold_outreach.py --gmail-drafts --help.
+Setup: Google Cloud project + Gmail API + "Desktop app" OAuth client, its JSON
+saved as .secrets/gmail_client_secret.json (see CLAUDE.md, "HN Radar").
 """
 
 import base64
