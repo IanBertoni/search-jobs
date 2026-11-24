@@ -12,7 +12,6 @@ from freelancer_radar import (
     fetch_projects,
     parse_projects,
     render,
-    write_pitches,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -108,55 +107,27 @@ def test_budget_label_without_maximum():
     assert budget_label(project) == "USD 20+/h"
 
 
-def test_write_pitches_keeps_pitch_and_drops_skip(monkeypatch):
-    replies = iter(["Line 1\nLine 2\nLine 3", "SKIP"])
-    prompts = []
-
-    def fake_chat(system, user, session):
-        prompts.append(user)
-        return next(replies)
-
-    monkeypatch.setattr(freelancer_radar, "groq_chat", fake_chat)
-    projects = candidates(parse_projects(PAYLOAD))[:2]
-
-    pitched = write_pitches(projects, session=None)
-
-    assert [p["id"] for p in pitched] == [101]
-    assert pitched[0]["pitch"] == "Line 1\nLine 2\nLine 3"
-    assert "Scrape 3 shops daily" in prompts[0]
-
-
-def test_write_pitches_retries_a_429_once_and_skips_other_errors(monkeypatch):
-    calls = []
-
-    def fake_chat(system, user, session):
-        calls.append(user)
-        if len(calls) == 1:
-            raise requests.HTTPError("429: slow down")
-        if len(calls) == 3:
-            raise requests.HTTPError("500: boom")
-        return "pitch"
-
-    monkeypatch.setattr(freelancer_radar, "groq_chat", fake_chat)
-    projects = candidates(parse_projects(PAYLOAD))[:2]
-
-    pitched = write_pitches(projects, session=None)
-
-    assert [p["id"] for p in pitched] == [101]
-    assert len(calls) == 3
-
-
-def test_render_is_a_table_with_one_line_pitches():
-    project = {**by_id(parse_projects(PAYLOAD))[101], "pitch": "A | B\nC"}
+def test_render_is_a_table_plus_full_descriptions():
+    description = "A | B\nC " * 50
+    project = {**by_id(parse_projects(PAYLOAD))[101], "descripcion": description}
 
     text = render([project])
 
-    assert "| Título | Presupuesto | Bids | Publicado | Link | Pitch |" in text
+    assert "| Título | Presupuesto | Bids | Publicado | Link | Descripción |" in text
     assert (
         "| Python web scraper for e-commerce prices | USD 100-300 | 3 | 2026-11-24 "
         "| https://www.freelancer.com/projects/python/"
-        "Python-web-scraper-for-e-commerce-prices-101 | A / B<br>C |"
+        "Python-web-scraper-for-e-commerce-prices-101 | A / B C A / B C"
     ) in text
+    # the table cell is clipped; the full text sits below, ready to paste
+    assert "## Python web scraper for e-commerce prices" in text
+    assert description.strip() in text
+    assert "| Pitch" not in text
+
+
+def test_radar_never_calls_groq():
+    assert not hasattr(freelancer_radar, "groq_chat")
+    assert not hasattr(freelancer_radar, "write_pitches")
 
 
 class FakeResponse:

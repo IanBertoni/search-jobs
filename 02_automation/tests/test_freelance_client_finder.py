@@ -8,7 +8,6 @@ import freelance_client_finder as finder
 from freelance_client_finder import (
     GITHUB_API,
     GITHUB_SEARCH,
-    PITCH_PROMPT,
     fetch_github,
     getonboard_clients,
     github_clients,
@@ -19,12 +18,10 @@ from freelance_client_finder import (
     remotive_clients,
     render,
     repo_ok,
-    write_pitches,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures"
 GITHUB = json.loads((FIXTURES / "github_issues_search.json").read_text("utf-8"))
-PITCH = "I saw your issue looking for hybrid search. I can solve this with Python."
 # repo -> (stars, archived, open bounty issues)
 REPOS = {
     "acme/ragkit": (120, False, 3),
@@ -33,19 +30,6 @@ REPOS = {
     "farm/money": (500, False, 250),  # bounty farm
     "old/lib": (300, True, 2),  # archived
 }
-
-
-def groq_session(*contents: str) -> MagicMock:
-    replies = [
-        MagicMock(
-            ok=True,
-            json=MagicMock(return_value={"choices": [{"message": {"content": c}}]}),
-        )
-        for c in contents
-    ]
-    session = MagicMock()
-    session.post.side_effect = replies
-    return session
 
 
 def github_session() -> MagicMock:
@@ -219,45 +203,28 @@ def test_latest_freelancer_thread_takes_the_newest_matching_title():
     assert latest_freelancer_thread(session) == "50338744"
 
 
-def test_write_pitches_calls_groq_once_per_client_and_drops_skip():
-    clients = github_clients(GITHUB)[:2]
-    session = groq_session(PITCH, "SKIP")
-
-    pitched = write_pitches(clients, session)
-
-    assert session.post.call_count == 2
-    assert [p["autor"] for p in pitched] == ["acme/ragkit"]
-    assert pitched[0]["pitch"] == PITCH
-
-
-def test_write_pitches_skips_a_client_when_groq_fails():
-    clients = github_clients(GITHUB)[:2]
-    session = groq_session(PITCH)
-    session.post.side_effect = [
-        MagicMock(ok=False, status_code=500, text="boom"),
-        *session.post.side_effect,
-    ]
-
-    assert [p["autor"] for p in write_pitches(clients, session)] == ["ferris/fastparse"]
-
-
-def test_pitch_prompt_offers_contract_work_with_the_stack_and_github():
-    assert "3 lines" in PITCH_PROMPT
-    assert "contractor" in PITCH_PROMPT
-    assert "Python, FastAPI and RAG" in PITCH_PROMPT
-    assert "github.com/IanBertoni" in PITCH_PROMPT
-
-
-def test_render_lists_each_client_with_link_payment_and_pitch():
-    client = {**github_clients(GITHUB)[0], "pitch": PITCH}
-
-    text = render([client])
+def test_render_lists_each_client_with_link_payment_and_raw_description():
+    text = render(github_clients(GITHUB)[:1])
 
     assert "## Add hybrid search to the retriever" in text
     assert "https://github.com/acme/ragkit/issues/12" in text
     assert "- Empresa/Fuente: acme/ragkit (GitHub bounty)" in text
     assert "- Pago: $250" in text
-    assert PITCH in text
+    assert (
+        "```text\nAdd hybrid search to the retriever\n"
+        "We will pay $250 for this, via GitHub Sponsors."
+    ) in text
+
+
+def test_render_clips_long_descriptions():
+    client = {**github_clients(GITHUB)[0], "texto": "x" * 5000}
+
+    assert "x" * 3001 not in render([client])
+
+
+def test_finder_never_calls_groq():
+    assert not hasattr(finder, "groq_chat")
+    assert not hasattr(finder, "write_pitches")
 
 
 def test_hn_drops_lead_roles():

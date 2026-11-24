@@ -1,4 +1,4 @@
-"""Freelance client finder: paid Python gigs, contracts and bounties -> pitches.
+"""Freelance client finder: paid Python gigs, contracts and bounties (raw data).
 
 Sources (public and allowed by robots.txt / terms):
 - Remotive RSS (software-development, data): contract/freelance items only.
@@ -18,7 +18,8 @@ Removed / skipped on purpose:
   non-commercial API use; using it without approval breaks its terms.
 - Indie Hackers (Cloudflare challenge, /api/ disallowed, AI crawlers blocked
   in robots.txt) and X (search needs the paid API).
-Only drafts the pitch: sending stays manual (see CLAUDE.md).
+No LLM: it only collects raw data. The pitch is written by hand with
+01_assets/pitch/giga_prompt.txt, and sending stays manual (see CLAUDE.md).
 Output: 03_tracking/freelance_leads.md
 Usage (from 02_automation/): python freelance_client_finder.py [--verbose]
 """
@@ -26,7 +27,6 @@ Usage (from 02_automation/): python freelance_client_finder.py [--verbose]
 import argparse
 import logging
 import re
-import sys
 import time
 import xml.etree.ElementTree as ET
 
@@ -37,10 +37,8 @@ from cold_outreach import (
     ALGOLIA_URL,
     HN_ITEM_URL,
     TIMEOUT_S,
-    groq_chat,
 )
 from config import (
-    GROQ_API_KEY,
     REQUEST_DELAY_S,
     TRACKING_DIR,
     setup_logging,
@@ -109,15 +107,7 @@ REMOTIVE_TYPES = {"contract", "freelance"}
 GETONBOARD_QUERIES = ["python", "llm", "automation"]
 GETONBOARD_FREELANCE = "3"  # /api/v0/modalities: 3 = Freelance
 
-PITCH_PROMPT = """You write a short pitch from Ian, a freelance Python developer
-in Argentina, offering his services as a contractor to someone who posted a paid
-gig, a contract role or a GitHub issue with a bounty.
-Reply with ONLY the message, in English, exactly 3 lines:
-1. The concrete thing they need, in a few words, taken from the post.
-2. How Ian would deliver it as a contractor with his stack: Python, FastAPI and RAG.
-3. His GitHub (github.com/IanBertoni) and a short call to action.
-Professional and direct, no bullet points, not a CV. Invent nothing about the client.
-Reply with exactly SKIP if it is not paid software work."""
+MAX_TEXT_CHARS = 3000  # per lead in the .md; the link has the rest
 
 logger = logging.getLogger(__name__)
 
@@ -365,33 +355,20 @@ def fetch_hn(session: requests.Session) -> list[dict]:
     return hn_clients(response.json())
 
 
-def write_pitches(clients: list[dict], session: requests.Session) -> list[dict]:
-    """One Groq call per client; failures are logged and skipped, SKIP is dropped."""
-    pitched = []
-    for client in clients:
-        post = (
-            f"Source: {client['fuente']}\nAuthor: {client['autor']}\n"
-            f"Post:\n{client['texto'][:3000]}"
-        )
-        try:
-            pitch = groq_chat(PITCH_PROMPT, post, session)
-        except (requests.RequestException, KeyError, TypeError, ValueError) as error:
-            logger.error("%s: %s", client["link"], error)
-            continue
-        if pitch == "SKIP":
-            logger.info("%s: SKIP de Groq", client["link"])
-            continue
-        pitched.append({**client, "pitch": pitch})
-    return pitched
-
-
 def render(clients: list[dict]) -> str:
-    blocks = ["# Freelance leads (job boards, GitHub bounties, HN) con pitch\n"]
+    """One block per lead with its description, ready to paste into the giga prompt."""
+    blocks = [
+        "# Freelance leads (job boards, GitHub bounties, HN)\n",
+        "Datos crudos: el pitch se arma a mano con 01_assets/pitch/giga_prompt.txt.\n",
+    ]
     for c in clients:
         payment = f"- Pago: {c['pago']}\n" if c.get("pago") not in (None, "?") else ""
+        text = c["texto"].strip()
+        if len(text) > MAX_TEXT_CHARS:
+            text = text[:MAX_TEXT_CHARS] + "\n[...]"
         blocks.append(
             f"## {c['titulo']}\n\n- Empresa/Fuente: {c['autor']} ({c['fuente']})\n"
-            f"- Link: {c['link']}\n{payment}\n```text\n{c['pitch']}\n```\n"
+            f"- Link: {c['link']}\n{payment}\n```text\n{text}\n```\n"
         )
     return "\n".join(blocks)
 
@@ -400,8 +377,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     setup_logging(parser.parse_args().verbose)
-    if not GROQ_API_KEY:
-        sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
     clients = []
     sources = (
@@ -416,9 +391,8 @@ def main() -> None:
             clients += fetch(session)
         except (requests.RequestException, LookupError, KeyError, ValueError) as error:
             logger.error("%s: skipped: %s", name, error)
-    pitched = write_pitches(clients, session)
-    OUTPUT.write_text(render(pitched), encoding="utf-8")
-    print(f"{len(pitched)}/{len(clients)} clientes con pitch -> {OUTPUT}")
+    OUTPUT.write_text(render(clients), encoding="utf-8")
+    print(f"{len(clients)} clientes -> {OUTPUT}")
 
 
 if __name__ == "__main__":

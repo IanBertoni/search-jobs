@@ -1,9 +1,10 @@
-"""Freelancer.com radar: low-competition Python/data projects from the public API -> pitches.
+"""Freelancer.com radar: low-competition Python/data projects from the public API.
 
 Freelancer.com has an official JSON API (no login needed for active projects), so
 this uses it instead of scraping. Hard filter: under 25 bids, budget >= USD 50
 (USD 15/h for hourly), a profile keyword and no senior/lead/UX-UI title.
-Only drafts the pitch: bidding stays manual (see CLAUDE.md).
+No LLM: it only collects raw data. The pitch is written by hand with
+01_assets/pitch/giga_prompt.txt, and bidding stays manual (see CLAUDE.md).
 If the API starts answering 403/429, see "Freelance Radar" in CLAUDE.md.
 Output: 03_tracking/freelancer_leads.md
 Usage (from 02_automation/): python freelancer_radar.py [--verbose]
@@ -11,15 +12,12 @@ Usage (from 02_automation/): python freelancer_radar.py [--verbose]
 
 import argparse
 import logging
-import sys
 import time
 from datetime import UTC, datetime
 
 import requests
 
-from cold_outreach import groq_chat
-from config import GROQ_API_KEY, TRACKING_DIR, setup_logging
-from freelance_client_finder import PITCH_PROMPT
+from config import TRACKING_DIR, setup_logging
 from scrapers.getonboard_scraper import TIMEOUT_S, html_to_text, whole_words
 
 API_URL = "https://www.freelancer.com/api/projects/0.1/projects/active/"
@@ -51,10 +49,7 @@ EXCLUDED = whole_words(
     + ["ux", "ui/ux", "ux/ui"]
 )
 
-# Groq free tier is tokens-per-minute bound: pace calls, wait out a 429 once
-GROQ_DELAY_S = 3
-RATE_LIMIT_WAIT_S = 30
-MAX_POST_CHARS = 3000
+SNIPPET_CHARS = 200  # table cell; the full description goes below the table
 
 logger = logging.getLogger(__name__)
 
@@ -127,71 +122,46 @@ def budget_label(project: dict) -> str:
     return label
 
 
-def _pitch(project: dict, session: requests.Session) -> str:
-    post = (
-        f"Source: Freelancer.com\nTitle: {project['titulo']}\n"
-        f"Budget: {budget_label(project)}\n"
-        f"Post:\n{project['descripcion'][:MAX_POST_CHARS]}"
-    )
-    for attempt in range(2):
-        try:
-            return groq_chat(PITCH_PROMPT, post, session)
-        except requests.HTTPError as error:
-            if attempt or not str(error).startswith("429"):
-                raise
-            logger.warning("groq rate limit, waiting %ss", RATE_LIMIT_WAIT_S)
-            time.sleep(RATE_LIMIT_WAIT_S)
-    raise AssertionError("unreachable")
-
-
-def write_pitches(projects: list[dict], session: requests.Session) -> list[dict]:
-    """One Groq call per project; failures are logged and skipped, SKIP is dropped."""
-    pitched = []
-    for project in projects:
-        try:
-            pitch = _pitch(project, session)
-        except (requests.RequestException, KeyError, TypeError, ValueError) as error:
-            logger.error("%s: %s", project["link"], error)
-            continue
-        finally:
-            time.sleep(GROQ_DELAY_S)
-        if pitch == "SKIP":
-            logger.info("%s: SKIP de Groq", project["link"])
-            continue
-        pitched.append({**project, "pitch": pitch})
-    return pitched
-
-
 def render(projects: list[dict]) -> str:
+    """Overview table, then each full description ready to paste into a prompt."""
+
     def cell(value) -> str:
-        return str(value).replace("|", "/").strip().replace("\n", "<br>")
+        return " ".join(str(value).replace("|", "/").split())
+
+    def snippet(text: str) -> str:
+        text = cell(text)
+        return text if len(text) <= SNIPPET_CHARS else text[:SNIPPET_CHARS] + "…"
 
     header = [
-        f"# Freelancer.com leads (< {MAX_BIDS} bids) con pitch\n",
+        f"# Freelancer.com leads (< {MAX_BIDS} bids)\n",
         (
             f"Generado: {datetime.now(UTC):%Y-%m-%d %H:%M} UTC. "
-            "Fuente: API pública de Freelancer.com. El bid se manda a mano.\n"
+            "Fuente: API pública de Freelancer.com. El pitch y el bid se hacen a mano "
+            "(01_assets/pitch/giga_prompt.txt).\n"
         ),
-        "| Título | Presupuesto | Bids | Publicado | Link | Pitch |",
+        "| Título | Presupuesto | Bids | Publicado | Link | Descripción |",
         "|---|---|---|---|---|---|",
     ]
     rows = [
         "| "
         + " | ".join(
-            cell(v)
-            for v in (
-                p["titulo"],
-                budget_label(p),
-                p["bids"],
+            (
+                cell(p["titulo"]),
+                cell(budget_label(p)),
+                str(p["bids"]),
                 p["publicado"],
                 p["link"],
-                p["pitch"],
+                snippet(p["descripcion"]),
             )
         )
         + " |"
         for p in projects
     ]
-    return "\n".join(header + rows) + "\n"
+    descriptions = [
+        f"## {p['titulo']}\n\n{p['link']}\n\n```text\n{p['descripcion'].strip()}\n```"
+        for p in projects
+    ]
+    return "\n".join(header + rows) + "\n\n" + "\n\n".join(descriptions) + "\n"
 
 
 def fetch_projects(
@@ -239,17 +209,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     setup_logging(parser.parse_args().verbose)
-    if not GROQ_API_KEY:
-        sys.exit("GROQ_API_KEY missing in 02_automation/.env")
-    session = requests.Session()
-    projects = fetch_all(session)
+    projects = fetch_all(requests.Session())
     shortlist = candidates(projects)
-    pitched = write_pitches(shortlist, session)
-    OUTPUT.write_text(render(pitched), encoding="utf-8")
-    print(
-        f"{len(projects)} proyectos, {len(shortlist)} pasan el filtro, "
-        f"{len(pitched)} con pitch -> {OUTPUT}"
-    )
+    OUTPUT.write_text(render(shortlist), encoding="utf-8")
+    print(f"{len(projects)} proyectos, {len(shortlist)} pasan el filtro -> {OUTPUT}")
 
 
 if __name__ == "__main__":
