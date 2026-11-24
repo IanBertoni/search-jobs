@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 import radar_watch
 from radar_watch import TELEGRAM_MAX_CHARS, hot, message, notify, send_telegram
@@ -140,3 +141,16 @@ def test_run_still_notifies_without_groq(tmp_path, monkeypatch, telegram, caplog
 
     assert radar_watch.run(session)["avisados"] == 1
     assert "GROQ_API_KEY" in caplog.text
+
+
+def test_send_telegram_never_leaks_the_token_in_a_network_error(telegram):
+    session = MagicMock()
+    session.post.side_effect = requests.ConnectionError(
+        "Max retries exceeded with url: /botTOKEN/sendMessage"
+    )
+
+    with pytest.raises(RuntimeError) as error:
+        send_telegram("hola", session)
+
+    assert "TOKEN" not in str(error.value)
+    assert error.value.__cause__ is None

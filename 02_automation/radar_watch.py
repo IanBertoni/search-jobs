@@ -51,15 +51,19 @@ def send_telegram(text: str, session: requests.Session) -> None:
     """RuntimeError if the bot is not configured or Telegram answers an error."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         raise RuntimeError("TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID missing in .env")
-    response = session.post(
-        TELEGRAM_URL.format(token=TELEGRAM_BOT_TOKEN),
-        json={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": text,
-            "disable_web_page_preview": True,
-        },
-        timeout=TIMEOUT_S,
-    )
+    try:
+        response = session.post(
+            TELEGRAM_URL.format(token=TELEGRAM_BOT_TOKEN),
+            json={
+                "chat_id": TELEGRAM_CHAT_ID,
+                "text": text,
+                "disable_web_page_preview": True,
+            },
+            timeout=TIMEOUT_S,
+        )
+    except requests.RequestException as error:
+        # the request URL carries the bot token: never let it reach the log
+        raise RuntimeError(f"telegram request failed: {type(error).__name__}") from None
     if not response.ok:
         raise RuntimeError(f"telegram {response.status_code}: {response.text[:200]}")
 
