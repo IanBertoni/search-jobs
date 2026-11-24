@@ -45,6 +45,7 @@ def test_parse_extracts_the_fields_and_converts_budget_to_usd():
         "max_usd": 300.0,
         "bids": 3,
         "publicado": "2026-11-24",
+        "publicado_ts": 1795500000,
         "skills": ["Python", "Web Scraping"],
     }
     assert projects[104]["min_usd"] == pytest.approx(135.0)
@@ -64,7 +65,7 @@ def test_parse_skips_malformed_projects():
 def test_candidates_apply_the_hard_filter():
     kept = [p["id"] for p in candidates(parse_projects(PAYLOAD))]
 
-    # 102: 15 bids; 103: < $50; 105: senior; 106: no keyword;
+    # 102: 25 bids; 103: < $50; 105: senior; 106: no keyword;
     # 108: hourly ~$8/h; 109: UX/UI; 112: "data" but only data-entry skills
     assert sorted(kept) == [101, 104, 107, 110, 111]
 
@@ -75,10 +76,18 @@ def test_candidates_need_a_dev_skill_not_just_a_keyword():
     assert candidates([project]) == []
 
 
-def test_candidates_put_fewest_bids_first():
+def test_candidates_put_under_5_bids_first_then_newest_first():
     kept = [p["id"] for p in candidates(parse_projects(PAYLOAD))]
 
-    assert kept == [101, 104, 107, 111, 110]
+    # 101 (3 bids) is the oldest but leads; 5-24 bids go newest first
+    assert kept == [101, 111, 110, 107, 104]
+
+
+def test_candidates_keep_up_to_24_bids():
+    project = by_id(parse_projects(PAYLOAD))[101]
+
+    assert candidates([{**project, "bids": 24}]) != []
+    assert candidates([{**project, "bids": 25}]) == []
 
 
 @pytest.mark.parametrize(

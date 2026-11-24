@@ -1,7 +1,7 @@
 """Freelancer.com radar: low-competition Python/data projects from the public API -> pitches.
 
 Freelancer.com has an official JSON API (no login needed for active projects), so
-this uses it instead of scraping. Hard filter: under 15 bids, budget >= USD 50
+this uses it instead of scraping. Hard filter: under 25 bids, budget >= USD 50
 (USD 15/h for hourly), a profile keyword and no senior/lead/UX-UI title.
 Only drafts the pitch: bidding stays manual (see CLAUDE.md).
 If the API starts answering 403/429, see "Freelance Radar" in CLAUDE.md.
@@ -31,11 +31,12 @@ MAX_PAGES = 3  # per query; "data" has ~800 active projects
 API_DELAY_S = 3  # between Freelancer.com requests
 OUTPUT = TRACKING_DIR / "freelancer_leads.md"
 
-MAX_BIDS = 15  # exclusive: 15 bids is already too crowded
+MAX_BIDS = 25  # exclusive; 15-24 bids still wins if you bid in the first hours
+FEW_BIDS = 5  # under this, a project jumps to the top of the list
 MIN_FIXED_USD = 50
 MIN_HOURLY_USD = 15  # a $50/h floor would drop every hourly project
 KEYWORDS = whole_words(["python", "scraping", "scraper", "automation", "data", "rag"])
-# exact Freelancer.com skill names (job_details=true): under 15 bids, "data" and
+# exact Freelancer.com skill names (job_details=true): with few bids, "data" and
 # "automation" are mostly data entry, sales and smart-home installs
 DEV_SKILLS = {
     "python", "web scraping", "data extraction", "data processing", "data mining",
@@ -79,6 +80,7 @@ def _project(raw: dict) -> dict:
         "max_usd": high * rate,
         "bids": int(raw["bid_stats"]["bid_count"]),
         "publicado": submitted.date().isoformat(),
+        "publicado_ts": int(raw["time_submitted"]),
         "skills": [job["name"] for job in raw.get("jobs") or []],
     }
 
@@ -108,9 +110,9 @@ def _passes(project: dict) -> bool:
 
 
 def candidates(projects: list[dict]) -> list[dict]:
-    """Hard filter, fewest bids first (ties: newest first)."""
+    """Hard filter; under FEW_BIDS first, then the rest, each group newest first."""
     kept = [p for p in projects if _passes(p)]
-    return sorted(kept, key=lambda p: (p["bids"], -p["id"]))
+    return sorted(kept, key=lambda p: (p["bids"] >= FEW_BIDS, -p["publicado_ts"]))
 
 
 def budget_label(project: dict) -> str:
@@ -165,7 +167,7 @@ def render(projects: list[dict]) -> str:
         return str(value).replace("|", "/").strip().replace("\n", "<br>")
 
     header = [
-        "# Freelancer.com leads (< 15 bids) con pitch\n",
+        f"# Freelancer.com leads (< {MAX_BIDS} bids) con pitch\n",
         (
             f"Generado: {datetime.now(UTC):%Y-%m-%d %H:%M} UTC. "
             "Fuente: API pública de Freelancer.com. El bid se manda a mano.\n"
