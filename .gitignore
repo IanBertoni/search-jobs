@@ -23,3 +23,7 @@ replacements.txt
 *backup*.md
 # personal interview prep
 *guion_video*
+# reverse-api-engineer captures: may contain cookies/tokens
+rae-run.*
+*.har
+/scripts/

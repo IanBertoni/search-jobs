@@ -1,0 +1,559 @@
+{
+  "status": "success",
+  "result": {
+    "projects": [
+      {
+        "id": 101,
+        "title": "Python web scraper for e-commerce prices",
+        "seo_url": "python/Python-web-scraper-for-e-commerce-prices-101",
+        "description": "Scrape 3 shops daily into a CSV.",
+        "preview_description": "Scrape 3 shops daily into a CSV.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 100.0,
+          "maximum": 300.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 3,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500000,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Web Scraping",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 102,
+        "title": "Python API integration",
+        "seo_url": "python/Python-API-integration-102",
+        "description": "Connect our CRM to Stripe.",
+        "preview_description": "Connect our CRM to Stripe.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 200.0,
+          "maximum": 500.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 15,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500100,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "API Integration",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 103,
+        "title": "Quick Python script fix",
+        "seo_url": "python/Quick-Python-script-fix-103",
+        "description": "Fix a small bug in a data script.",
+        "preview_description": "Fix a small bug in a data script.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 30.0,
+          "maximum": 80.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 1,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500200,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 104,
+        "title": "ETL pipeline for sales reports",
+        "seo_url": "python/ETL-pipeline-for-sales-reports-104",
+        "description": "Automate the daily data pipeline.",
+        "preview_description": "Automate the daily data pipeline.",
+        "type": "fixed",
+        "currency": {
+          "id": 11,
+          "code": "INR",
+          "sign": "₹",
+          "name": "Indian Rupee",
+          "exchange_rate": 0.0108,
+          "country": "IN"
+        },
+        "budget": {
+          "minimum": 12500.0,
+          "maximum": 37500.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 6,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500300,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Data Processing",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "SQL",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 105,
+        "title": "Senior Python Developer for SaaS",
+        "seo_url": "python/Senior-Python-Developer-for-SaaS-105",
+        "description": "Long term Python work.",
+        "preview_description": "Long term Python work.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 1000.0,
+          "maximum": 3000.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 2,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500400,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Django",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 106,
+        "title": "Logo design for a bakery",
+        "seo_url": "python/Logo-design-for-a-bakery-106",
+        "description": "Modern, colorful logo.",
+        "preview_description": "Modern, colorful logo.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 100.0,
+          "maximum": 250.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 4,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500500,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Logo Design",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Graphic Design",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 107,
+        "title": "RAG chatbot over company PDFs",
+        "seo_url": "python/RAG-chatbot-over-company-PDFs-107",
+        "description": "LLM assistant with citations.",
+        "preview_description": "LLM assistant with citations.",
+        "type": "hourly",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 20.0,
+          "maximum": 30.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 8,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500600,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "AI Development",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 108,
+        "title": "Data labeling assistant",
+        "seo_url": "python/Data-labeling-assistant-108",
+        "description": "Tag images for a dataset.",
+        "preview_description": "Tag images for a dataset.",
+        "type": "hourly",
+        "currency": {
+          "id": 11,
+          "code": "INR",
+          "sign": "₹",
+          "name": "Indian Rupee",
+          "exchange_rate": 0.0108,
+          "country": "IN"
+        },
+        "budget": {
+          "minimum": 750.0,
+          "maximum": 1250.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 5,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500700,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Data Entry",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Data Annotation",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 109,
+        "title": "UX/UI redesign for a data dashboard",
+        "seo_url": "python/UXUI-redesign-for-a-data-dashboard-109",
+        "description": "Figma screens for analytics.",
+        "preview_description": "Figma screens for analytics.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 300.0,
+          "maximum": 600.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 2,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500800,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "UI / User Interface",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Figma",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 110,
+        "title": "Build a Telegram bot",
+        "seo_url": "python/Build-a-Telegram-bot-110",
+        "description": "Workflow automation in Python, posting alerts.",
+        "preview_description": "Workflow automation in Python, posting alerts.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 50.0,
+          "maximum": 150.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 14,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795500900,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Python",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Automation",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 111,
+        "title": "Lead generation list via scraping",
+        "seo_url": "python/Lead-generation-list-via-scraping-111",
+        "description": "Collect public business emails from directories.",
+        "preview_description": "Collect public business emails from directories.",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 80.0,
+          "maximum": 200.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 9,
+          "bid_avg": 120.5
+        },
+        "time_submitted": 1795501000,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 0,
+            "name": "Web Scraping",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          },
+          {
+            "id": 1,
+            "name": "Lead Generation",
+            "category": {
+              "id": 1,
+              "name": "Websites, IT & Software"
+            }
+          }
+        ]
+      },
+      {
+        "id": 112,
+        "title": "Copy data from PDFs to a sheet",
+        "seo_url": "data-entry/Copy-data-from-PDFs-112",
+        "description": "Data entry, about 200 rows.",
+        "preview_description": "Data entry",
+        "type": "fixed",
+        "currency": {
+          "id": 1,
+          "code": "USD",
+          "sign": "$",
+          "name": "US Dollar",
+          "exchange_rate": 1.0,
+          "country": "US"
+        },
+        "budget": {
+          "minimum": 100.0,
+          "maximum": 300.0,
+          "name": null,
+          "project_type": null,
+          "currency_id": null
+        },
+        "bid_stats": {
+          "bid_count": 2,
+          "bid_avg": 30.0
+        },
+        "time_submitted": 1795501100,
+        "status": "active",
+        "jobs": [
+          {
+            "id": 1,
+            "name": "Data Entry"
+          },
+          {
+            "id": 2,
+            "name": "Excel"
+          }
+        ]
+      }
+    ],
+    "users": null,
+    "selected_bids": null,
+    "total_count": 12
+  },
+  "request_id": "fixture"
+}
