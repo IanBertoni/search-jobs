@@ -27,3 +27,5 @@ replacements.txt
 rae-run.*
 *.har
 /scripts/
+# private giga prompt: real profile data (the template is the public one)
+01_assets/pitch/giga_prompt_private.txt

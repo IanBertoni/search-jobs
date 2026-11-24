@@ -64,6 +64,31 @@ LLMs are confidently wrong, so the agent never trusts a reply as is.
   malformed JSON and HTTP errors are logged and skipped per lead (one bad reply
   doesn't kill the batch), and settings come from `.env` with checked types.
 
+## Free Giga Prompt for Freelancers
+
+The radars find leads; the pitch is written by a human with an LLM chat
+(ChatGPT, Claude, Gemini, any of them). This repo ships the prompt for that
+step: [`01_assets/pitch/giga_prompt_template.txt`](01_assets/pitch/giga_prompt_template.txt)
+(in Spanish; the pitch comes out in the language of the offer).
+
+Paste a job or project description into it and the model returns:
+
+1. which of your three best projects fits the offer, and why;
+2. a pitch of 4 lines at most, naming only the parts of your stack the client
+   asked for;
+3. three questions for the client that show you understood the problem;
+4. what to highlight in your CV for this offer.
+
+How to use it:
+
+1. Copy the template to a private file and add it to `.gitignore`.
+2. Replace every `[PLACEHOLDER]` (`[TU_NOMBRE]`, `[TU_STACK_TECNOLOGICO]`,
+   `[PROYECTO_1_DESCRIPCION]`, `[TU_GITHUB]`...) with your own data. Write only
+   what a client can check: the model repeats your claims in every pitch.
+3. For each offer, paste its description where it says
+   `[PEGAR AQUÍ LA DESCRIPCIÓN DE LA OFERTA]` and send the whole prompt.
+4. Edit the result and send it yourself.
+
 ## Stack
 
 Python 3 · requests · pandas · Groq (`openai/gpt-oss-120b`) · pytest + pytest-cov · ruff
