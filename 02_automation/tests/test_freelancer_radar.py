@@ -65,21 +65,40 @@ def test_candidates_apply_the_hard_filter():
     kept = [p["id"] for p in candidates(parse_projects(PAYLOAD))]
 
     # 102: 25 bids; 103: < $50; 105: senior; 106: no keyword;
-    # 108: hourly ~$8/h; 109: UX/UI; 112: "data" but only data-entry skills
-    assert sorted(kept) == [101, 104, 107, 110, 111]
+    # 108: hourly ~$8/h; 109: UX/UI; 112: "data" but only data-entry skills;
+    # 104: only "Data Processing" and "SQL", no strictly technical skill
+    assert sorted(kept) == [101, 107, 110, 111]
 
 
-def test_candidates_need_a_dev_skill_not_just_a_keyword():
-    project = {**by_id(parse_projects(PAYLOAD))[101], "skills": ["Home Automation"]}
+@pytest.mark.parametrize(
+    "skills",
+    [
+        ["Home Automation"],
+        ["Automation"],
+        ["Data Processing"],
+        ["AI Automation", "Data Entry", "Excel"],
+    ],
+)
+def test_candidates_drop_projects_without_a_strict_dev_skill(skills):
+    project = {**by_id(parse_projects(PAYLOAD))[101], "skills": skills}
 
     assert candidates([project]) == []
+
+
+@pytest.mark.parametrize(
+    "skill", ["Python", "Web Scraping", "scraping", "RAG", "LLM", "FastAPI"]
+)
+def test_candidates_keep_any_strict_dev_skill_ignoring_case(skill):
+    project = {**by_id(parse_projects(PAYLOAD))[101], "skills": ["Excel", skill]}
+
+    assert candidates([project]) != []
 
 
 def test_candidates_put_under_5_bids_first_then_newest_first():
     kept = [p["id"] for p in candidates(parse_projects(PAYLOAD))]
 
     # 101 (3 bids) is the oldest but leads; 5-24 bids go newest first
-    assert kept == [101, 111, 110, 107, 104]
+    assert kept == [101, 111, 110, 107]
 
 
 def test_candidates_keep_up_to_24_bids():

@@ -34,15 +34,10 @@ FEW_BIDS = 5  # under this, a project jumps to the top of the list
 MIN_FIXED_USD = 50
 MIN_HOURLY_USD = 15  # a $50/h floor would drop every hourly project
 KEYWORDS = whole_words(["python", "scraping", "scraper", "automation", "data", "rag"])
-# exact Freelancer.com skill names (job_details=true): with few bids, "data" and
-# "automation" are mostly data entry, sales and smart-home installs
-DEV_SKILLS = {
-    "python", "web scraping", "data extraction", "data processing", "data mining",
-    "automation", "ai automation", "api development", "api integration", "n8n",
-    "software development", "ai development", "machine learning (ml)", "data science",
-    "artificial intelligence", "natural language processing", "chatbot", "sql",
-    "etl", "django", "flask", "fastapi", "selenium", "scrapy",
-}  # fmt: skip
+# exact Freelancer.com skill names (job_details=true), strictly technical: with few
+# bids, "automation" and "data processing" are mostly data entry, sales and
+# smart-home installs
+DEV_SKILLS = {"python", "scraping", "web scraping", "rag", "llm", "fastapi"}
 # title only, and "lead" only as a role: "lead generation" scraping is real work
 EXCLUDED = whole_words(
     ["senior", "sr", "tech lead", "team lead", "lead developer", "lead engineer"]
