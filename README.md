@@ -99,7 +99,7 @@ Python 3 · requests · pandas · Groq (`openai/gpt-oss-120b`) · pytest + pytes
 pip install -r requirements.txt
 cd 02_automation
 cp .env.example .env                      # add GROQ_API_KEY
-python -m pytest -q                       # 192 tests, offline
+python -m pytest -q                       # 316 tests, offline
 python -m scrapers.getonboard_scraper     # collect leads
 python tailoring_engine.py --top 5        # pitch + CV per lead
 python cold_outreach.py --top 5           # founder emails from HN
