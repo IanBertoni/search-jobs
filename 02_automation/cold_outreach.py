@@ -8,7 +8,7 @@ Output: 03_tracking/outreach/founders_outreach.md (full-time emails)
         03_tracking/hn_contract_leads.md (contract/freelance table)
         03_tracking/outreach/gmail_drafted.json (posts already drafted in Gmail)
 Usage (from 02_automation/): python cold_outreach.py [--top N] [--gmail-drafts]
-                             [--verbose]
+                             [--all-levels] [--verbose]
 """
 
 import argparse
@@ -374,13 +374,20 @@ def main() -> None:
     parser.add_argument(
         "--gmail-drafts", action="store_true", help="also create Gmail drafts"
     )
+    parser.add_argument(
+        "--all-levels",
+        action="store_true",
+        help="drop the junior-only rule (same filter as radar_watch.py)",
+    )
     parser.add_argument("--verbose", action="store_true", help="log INFO too")
     args = parser.parse_args()
     setup_logging(args.verbose)
     if not GROQ_API_KEY:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")
     session = requests.Session()
-    full_time, freelance = split_by_type(fetch_offers(session)[: args.top])
+    full_time, freelance = split_by_type(
+        fetch_offers(session, junior_only=not args.all_levels)[: args.top]
+    )
     drafts = write_emails(full_time, session)
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT.write_text(render(drafts), encoding="utf-8")
