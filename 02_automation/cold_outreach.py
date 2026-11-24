@@ -78,9 +78,25 @@ VISA = whole_words(
         "u.s. defense",
     ]
 )
-# "Remote (US)" is US-only in practice; "Remote (US, LATAM)" is not
-REMOTE_US = re.compile(
-    r"remote\s*\(\s*(?:us|usa|u\.s\.?)(?:[\s-]*only)?\s*\)", re.IGNORECASE
+# "Remote (Canada)", "(EEA)", "(US)" tie the job to a region: dropped unless the
+# parentheses open it to Argentina; "Remote (US, LATAM)" and timezones stay
+REMOTE_REGION = re.compile(r"remote\s*\(([^)]*)\)", re.IGNORECASE)
+OPEN_REGION = whole_words(
+    [
+        "worldwide",
+        "global",
+        "latam",
+        "latin america",
+        "argentina",
+        "americas",
+        "anywhere",
+        "utc",
+        "gmt",
+        "timezone",
+        "timezones",
+        "time zone",
+        "time zones",
+    ]
 )
 ON_SITE = whole_words(["uk", "london", "europe", "eu", "ireland", "germany", "hybrid"])
 GLOBAL = whole_words(["worldwide", "global", "latam"])  # lifts ON_SITE
@@ -196,7 +212,7 @@ def _dealbreaker(text: str) -> bool:
     off_title = OFF_TITLE.search(text.splitlines()[0])
     return bool(
         VISA.search(text)
-        or REMOTE_US.search(text)
+        or any(not OPEN_REGION.search(r) for r in REMOTE_REGION.findall(text))
         or PROFILE.search(text)
         or on_site
         or off_title

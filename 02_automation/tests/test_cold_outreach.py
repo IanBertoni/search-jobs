@@ -373,3 +373,50 @@ def test_write_emails_keeps_an_email_that_only_mentions_skip_later():
     session = json_session(groq_reply("Hey bob, happy to skip the small talk."))
 
     assert len(write_emails(offers, session)) == 1
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "REMOTE (Canada)",
+        "REMOTE (EEA)",
+        "Remote (EU)",
+        "Remote (UK only)",
+        "Remote (Germany)",
+        "Remote (US, Brazil or EU)",
+    ],
+)
+def test_parse_drops_remote_tied_to_a_region_without_argentina(location):
+    post = f"Acme | Python Engineer | {location} | Contract<p>Python backend."
+
+    assert parse_offers(raw_comment(post), junior_only=False) == []
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "Remote (Worldwide)",
+        "REMOTE (Global)",
+        "Remote (LATAM)",
+        "Remote (Latin America)",
+        "Remote (Americas)",
+        "Remote (Argentina)",
+        "Remote (anywhere)",
+        "Remote (UTC-3 to UTC+2)",
+        "Remote (US time zones)",
+        "Remote",
+    ],
+)
+def test_parse_keeps_remote_open_to_argentina_or_only_a_timezone(location):
+    post = f"Acme | Python Engineer | {location} | Contract<p>Python backend."
+
+    assert len(parse_offers(raw_comment(post), junior_only=False)) == 1
+
+
+def test_region_rule_also_drops_contract_leads_and_radar_alerts():
+    post = "Acme Ops | Software Engineer | REMOTE (Canada) | Contract<p>Python."
+
+    offers = parse_offers(raw_comment(post), junior_only=False)
+    _, contract = split_by_type(offers)
+
+    assert contract == []
