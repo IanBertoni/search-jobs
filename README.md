@@ -46,7 +46,7 @@ Each module follows the same loop: **observe → evaluate → act → check the 
 
 LLMs are confidently wrong, so the agent never trusts a reply as is.
 
-- **192 automated tests** (pytest) cover the scrapers, filters, matcher and
+- **316 automated tests** (pytest) cover the scrapers, filters, matcher and
   guardrails. Scrapers run on saved API/RSS fixtures, and the LLM is mocked, so the suite
   runs offline in about 3 seconds.
 - **Deterministic filter before the LLM.** Hard rules drop posts that
