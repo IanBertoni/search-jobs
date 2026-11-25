@@ -142,6 +142,38 @@ def test_parse_drops_dealbreakers_without_calling_groq(text):
     assert parse_offers(comment(text)) == []
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        # a candidate posting in the hiring thread by mistake
+        "Jane Doe | Backend Engineer | India (REMOTE)<p>Python. I'm currently "
+        "looking for Software Engineer or Backend Engineer opportunities.",
+        "Jo | Python Developer | Remote<p>Resume: https://example.com/cv",
+        "Jo | Python Developer | Remote<p>Open to work, feel free to reach out.",
+    ],
+)
+def test_parse_drops_job_seekers_posting_in_the_hiring_thread(text):
+    assert parse_offers(comment(text)) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Voluntas: Rust-only stack with a Rust challenge
+        "Voluntas | Remote | Software Engineer<p>A trading firm written 100% in Rust.",
+        "Co | Software Engineer | Remote<p>Data. We prefer this to AI generated code.",
+    ],
+)
+def test_parse_drops_non_python_stacks_and_anti_ai_teams(text):
+    assert parse_offers(comment(text)) == []
+
+
+def test_parse_keeps_rust_posts_that_also_use_python():
+    text = "Co | Backend Engineer | Remote<p>Python services, some Rust."
+
+    assert len(parse_offers(comment(text))) == 1
+
+
 def test_parse_keeps_full_stack_python_remote_latam():
     text = "Co | Full-Stack Python Engineer | Remote LATAM<p>We use FastAPI."
 

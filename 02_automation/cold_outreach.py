@@ -132,6 +132,16 @@ JUNIOR = whole_words(
     ]
 )
 OFF_TITLE = whole_words(["designer", "sales", "marketing", "product manager"])
+# candidates who post in "Who is hiring?" by mistake
+JOB_SEEKER = re.compile(
+    r"looking for (?:[\w/-]+,? ){0,8}?(?:opportunities|roles|positions)\b"
+    r"|\bresume:|\bmy resume\b|\bopen to work\b|\bseeking work\b|\bhire me\b",
+    re.IGNORECASE,
+)
+# Ian builds with Python and Claude: a Rust-only stack or a team against AI code
+RUST = whole_words(["rust"])
+PYTHON = whole_words(["python"])
+ANTI_AI = whole_words(["ai generated code", "ai-generated code"])
 YEARS = re.compile(r"(\d+)\s*\+?\s*(?:years|yrs)", re.IGNORECASE)
 REMOTE = whole_words(["remote", "worldwide", "latam"])
 LATAM = whole_words(
@@ -220,6 +230,9 @@ def _dealbreaker(text: str) -> bool:
         or PROFILE.search(text)
         or on_site
         or off_title
+        or JOB_SEEKER.search(text)
+        or (RUST.search(text) and not PYTHON.search(text))
+        or ANTI_AI.search(text)
         or any(n >= MAX_YEARS for n in years)
     )
 
