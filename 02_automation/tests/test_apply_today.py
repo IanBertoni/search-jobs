@@ -342,13 +342,13 @@ def test_load_applied_links_reads_one_link_per_line_with_notes(tmp_path):
     path = tmp_path / "applied_links.txt"
     path.write_text(
         "﻿# comment\n\n"
-        "https://job-boards.eu.greenhouse.io/agency/jobs/4778246101/confirmation x\n"
+        "https://job-boards.eu.greenhouse.io/agency/jobs/1234567890/confirmation x\n"
         "https://aitrainer.work/jobs/micro1/ai-trainer-swe-7 cerrado por ahora\n"
         "not a link\n",
         encoding="utf-8",
     )
 
-    assert load_applied_links(path) == {"4778246101", "ai-trainer-swe-7"}
+    assert load_applied_links(path) == {"1234567890", "ai-trainer-swe-7"}
 
 
 def test_load_applied_links_is_empty_without_the_file(tmp_path):
@@ -366,7 +366,7 @@ def test_drop_applied_links_matches_the_posting_id_in_link_or_apply_link():
                 "https://aitrainer.work/jobs/micro1/ai-trainer-swe-70",
             ],
             "apply_link": [
-                "https://job-boards.eu.greenhouse.io/agency/jobs/4778246101",
+                "https://job-boards.eu.greenhouse.io/agency/jobs/1234567890",
                 None,
                 None,
                 None,
@@ -374,7 +374,7 @@ def test_drop_applied_links_matches_the_posting_id_in_link_or_apply_link():
         }
     )
     applied = {
-        "4778246101",  # applied through the form: its confirmation link
+        "1234567890",  # applied through the form: its confirmation link
         "conversational-ai-qa-specialist-x",  # /empleos/<category>/<slug> on getonbrd
         "ai-trainer-swe-7",
     }

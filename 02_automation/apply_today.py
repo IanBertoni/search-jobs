@@ -35,7 +35,7 @@ from scrapers.getonboard_scraper import (
 TO_APPLY_MD = TRACKING_DIR / "to_apply.md"
 # postings already applied to or closed: one link per line, then an optional note
 APPLIED_LINKS = TRACKING_DIR / "applied_links.txt"
-# the form's own pages end the link: ".../jobs/4778246101/confirmation"
+# the form's own pages end the link: ".../jobs/1234567890/confirmation"
 FORM_PAGES = {"confirmation", "apply", "application"}
 # the 3 jd-decoder checks a script can't do
 MANUAL_CHECKS = "careers page, layoffs, actividad del recruiter"
