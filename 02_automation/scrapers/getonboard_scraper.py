@@ -67,7 +67,11 @@ LEAD_COLUMNS = [
     "vertical",
     "pais",
     "priority",
+    # the posting's own form when an aggregator gives it; empty means "use link"
+    "apply_link",
+    "idiomas",  # languages the posting requires, when the source states them
 ]
+OPTIONAL_COLUMNS = ("apply_link", "idiomas")
 SNAPSHOT_GLOB = "leads_????-??-??.csv"  # dated files only, never leads_consolidated.csv
 CONSOLIDATED_CSV = "leads_consolidated.csv"
 CSV_ENCODING = "utf-8-sig"  # BOM so Excel shows accents
@@ -253,6 +257,7 @@ def clean_jobs(raw_jobs: list[dict]) -> pd.DataFrame:
             "pais": _getonboard_pais(
                 df["attributes.remote_modality"], df["attributes.countries"]
             ),
+            **dict.fromkeys(OPTIONAL_COLUMNS),
         }
     ).reset_index(drop=True)
 
@@ -410,7 +415,7 @@ def read_leads(path: Path) -> pd.DataFrame:
             ``LEAD_COLUMNS`` or has non-numeric scores.
     """
     leads = pd.read_csv(path, encoding=CSV_ENCODING)
-    optional = {"manual_review", "vertical", "pais", "priority"}
+    optional = {"manual_review", "vertical", "pais", "priority", *OPTIONAL_COLUMNS}
     missing = set(LEAD_COLUMNS) - optional - set(leads.columns)
     if missing:
         raise ValueError(f"{path.name}: missing columns {sorted(missing)}")
@@ -422,6 +427,9 @@ def read_leads(path: Path) -> pd.DataFrame:
         leads["pais"] = UNKNOWN
     if "priority" not in leads:
         leads["priority"] = priority_of(leads["pais"], leads["requisitos"])
+    for column in OPTIONAL_COLUMNS:  # snapshots written before they existed
+        if column not in leads:
+            leads[column] = None
     return leads.assign(score_jd=pd.to_numeric(leads["score_jd"]))
 
 

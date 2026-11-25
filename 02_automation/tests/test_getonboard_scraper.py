@@ -174,7 +174,7 @@ def test_build_leads_roundtrips_csv(raw_jobs, tmp_path):
 
 def write_snapshot(folder, day, rows):
     # legacy layout: before manual_review, vertical, pais and priority existed
-    pd.DataFrame(rows, columns=LEAD_COLUMNS[:-4]).to_csv(
+    pd.DataFrame(rows, columns=LEAD_COLUMNS[:6]).to_csv(
         folder / f"leads_{day}.csv", index=False
     )
 

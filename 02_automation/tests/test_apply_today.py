@@ -2,6 +2,8 @@ import pandas as pd
 import pytest
 
 from apply_today import (
+    drop_applied_links,
+    load_applied_links,
     load_leads,
     matches_profile,
     render_markdown,
@@ -98,7 +100,7 @@ def test_select_top_orders_by_fit_anyone_ai_then_coding_titles():
             "titulo": [
                 "Audio Evaluator",
                 "Python Coding Specialist - AI Trainer",
-                "Physics Expert - AI Trainer",
+                "Data Analyst - AI Trainer",
                 "Data Engineer",
                 "Backend Developer - AI Trainer",
             ],
@@ -114,30 +116,182 @@ def test_select_top_orders_by_fit_anyone_ai_then_coding_titles():
 
     assert order == [
         "Backend Developer - AI Trainer",  # Anyone AI, higher score first
-        "Physics Expert - AI Trainer",  # Anyone AI
+        "Data Analyst - AI Trainer",  # Anyone AI
         "Python Coding Specialist - AI Trainer",  # coding title
         "Audio Evaluator",  # the rest, by score
         "Data Engineer",
     ]
 
 
-def test_select_top_ranks_by_priority_before_fit_and_keeps_p3():
+def test_select_top_ranks_by_priority_before_fit():
     leads = pd.DataFrame(
         {
-            "titulo": ["Backend Developer - AI Trainer"] * 3 + ["AI Coding Evaluator"],
-            "empresa": ["anyoneai", "anyoneai", "anyoneai", "mindrift"],
-            "score_jd": [6, 6, 6, 3],
-            "vertical": ["ai_training"] * 4,
-            "requisitos": [""] * 4,
-            "priority": ["P3", "P2", "P1", "P1"],
+            "titulo": ["Backend Developer - AI Trainer"] * 2 + ["AI Coding Evaluator"],
+            "empresa": ["anyoneai", "anyoneai", "mindrift"],
+            "score_jd": [6, 6, 3],
+            "vertical": ["ai_training"] * 3,
+            "requisitos": [""] * 3,
+            "pais": ["Unknown", "Remote", "Remote"],
+            "priority": ["P2", "P1", "P1"],
         }
     )
 
     top = select_top(leads)
 
-    # a P1 from any platform beats Anyone AI in P2; P3 stays, ranked last
-    assert list(top["priority"]) == ["P1", "P1", "P2", "P3"]
+    # a P1 from any platform beats Anyone AI in P2
+    assert list(top["priority"]) == ["P1", "P1", "P2"]
     assert list(top["empresa"])[:2] == ["anyoneai", "mindrift"]
+
+
+def evaluator(**fields) -> pd.DataFrame:
+    lead = {
+        "titulo": "AI Coding Evaluator",
+        "empresa": "micro1",
+        "score_jd": 5,
+        "vertical": "ai_training",
+        "requisitos": "Review Python code",
+        "pais": "Remote",
+        "priority": "P1",
+    }
+    return pd.DataFrame([{**lead, **fields}])
+
+
+@pytest.mark.parametrize(
+    "where",
+    [
+        {"pais": "Hybrid: Chile", "priority": "P3"},
+        {"pais": "On-site: Chile", "priority": "P3"},
+        {"pais": "Remote, United States", "priority": "P2"},
+        {"pais": "Germany", "priority": "P2"},
+    ],
+)
+def test_select_top_drops_on_site_hybrid_and_other_countries(where):
+    # only 100% remote offers that include the target regions
+    assert select_top(evaluator(**where)).empty
+
+
+@pytest.mark.parametrize(
+    "where",
+    [
+        {"pais": "Remote", "priority": "P1"},
+        {"pais": "World Wide - Remote", "priority": "P1"},
+        {"pais": "Argentina, Brazil", "priority": "P1"},
+        {"pais": "Unknown", "priority": "P2"},  # can't tell: Ian checks it
+    ],
+)
+def test_select_top_keeps_remote_anywhere_and_unknown(where):
+    assert len(select_top(evaluator(**where))) == 1
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        {"idiomas": "German, English"},
+        {"idiomas": "Hindi"},
+        {"titulo": "Hindi Audio Evaluator"},
+        {"requisitos": "Native Japanese speaker | Python"},
+    ],
+)
+def test_select_top_drops_offers_in_other_languages(lead):
+    assert select_top(evaluator(**lead)).empty
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        {"idiomas": "English, Spanish"},
+        {"idiomas": "Latin American Spanish"},
+        {"idiomas": "American English"},
+        {"requisitos": "Polish the UI | Python"},  # the verb, not the language
+    ],
+)
+def test_select_top_keeps_english_and_spanish(lead):
+    assert len(select_top(evaluator(**lead))) == 1
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        {"titulo": "Senior AI Coding Evaluator"},
+        {"titulo": "Lead Code Evaluator"},
+        {"requisitos": "3–7 years of professional software engineering experience"},
+        {"requisitos": "5+ years with Python"},
+        {"requisitos": "At least 3 years in backend"},
+    ],
+)
+def test_select_top_drops_senior_and_three_plus_years(lead):
+    assert select_top(evaluator(**lead)).empty
+
+
+@pytest.mark.parametrize(
+    "titulo",
+    [
+        "Physics Expert - AI Trainer",
+        "Biology Expert - AI Trainer",
+        "AI Trainer (Life Sciences)",
+        "CFD Engineer - AI Trainer",
+        "CAD Engineer - AI Trainer",
+        "Freelance Mechanical CAD&Simulation Engineer - AI Trainer",
+        "Nuclear Engineer - AI Trainer (Contract)",
+        "Certified Chef Consultant – AI Research & Annotation Project",
+        "Law Model Prompt Evaluator",
+        "AI Trainer (Mathematics & Statistics)",
+        "AI Trainer (Earth & Environmental Sciences)",
+    ],
+)
+def test_select_top_drops_experts_of_other_fields(titulo):
+    assert select_top(evaluator(titulo=titulo)).empty
+
+
+@pytest.mark.parametrize(
+    "titulo",
+    [
+        "AI Trainer (ML Engineering)",
+        "Java Coding Specialist - Freelance AI Trainer Project",
+        "Search Engine Evaluator - Spanish (Argentina)",
+    ],
+)
+def test_select_top_keeps_software_and_generalist_roles(titulo):
+    assert len(select_top(evaluator(titulo=titulo))) == 1
+
+
+def test_select_top_keeps_up_to_two_years():
+    assert len(select_top(evaluator(requisitos="1+ years | Python"))) == 1
+
+
+def test_select_top_drops_unpaid_unless_it_leads_to_a_hire():
+    unpaid = evaluator(requisitos="This is an unpaid internship | Python")
+    to_hire = evaluator(requisitos="Unpaid for 2 months, then conversion to full-time")
+
+    assert select_top(unpaid).empty
+    assert len(select_top(to_hire)) == 1
+
+
+def test_render_uses_the_direct_link_and_credits_the_portal():
+    lead = evaluator(
+        link="https://aitrainer.work/jobs/micro1/x",
+        apply_link="https://jobs.micro1.ai/post/1",
+        manual_review="PENDING",
+    )
+
+    md = render_markdown(select_top(lead))
+
+    assert "- Link: https://jobs.micro1.ai/post/1" in md
+    assert "- Fuente: https://aitrainer.work/jobs/micro1/x" in md
+
+
+@pytest.mark.parametrize(
+    ("link", "line"),
+    [
+        ("https://aitrainer.work/jobs/anyoneai/x", "- Link del portal: "),
+        ("https://aitraining.jobs/jobs/y", "- Link del portal: "),
+        ("https://www.getonbrd.com/jobs/z", "- Link: "),  # the form is on that page
+    ],
+)
+def test_render_flags_aggregator_links_without_a_direct_one(link, line):
+    md = render_markdown(select_top(evaluator(link=link, manual_review="PENDING")))
+
+    assert f"{line}{link}" in md
 
 
 def test_select_top_drops_offers_outside_data_ai_profile():
@@ -182,6 +336,50 @@ def test_matches_profile_on_titlewhole_words(titulo, matches):
 def test_whole_words_escapes_keywords_and_empty_list_matches_nothing():
     assert whole_words(["node.js"]).search("nodexjs") is None
     assert whole_words([]).search("Data Engineer") is None
+
+
+def test_load_applied_links_reads_one_link_per_line_with_notes(tmp_path):
+    path = tmp_path / "applied_links.txt"
+    path.write_text(
+        "﻿# comment\n\n"
+        "https://job-boards.eu.greenhouse.io/agency/jobs/4778246101/confirmation x\n"
+        "https://aitrainer.work/jobs/micro1/ai-trainer-swe-7 cerrado por ahora\n"
+        "not a link\n",
+        encoding="utf-8",
+    )
+
+    assert load_applied_links(path) == {"4778246101", "ai-trainer-swe-7"}
+
+
+def test_load_applied_links_is_empty_without_the_file(tmp_path):
+    assert load_applied_links(tmp_path / "missing.txt") == set()
+
+
+def test_drop_applied_links_matches_the_posting_id_in_link_or_apply_link():
+    leads = pd.DataFrame(
+        {
+            "titulo": ["Spanish Contributor", "QA Specialist", "AI Trainer", "Other"],
+            "link": [
+                "https://aitrainer.work/jobs/meridial/spanish",
+                "https://www.getonbrd.com/jobs/conversational-ai-qa-specialist-x",
+                "https://aitrainer.work/jobs/micro1/ai-trainer-swe-7",
+                "https://aitrainer.work/jobs/micro1/ai-trainer-swe-70",
+            ],
+            "apply_link": [
+                "https://job-boards.eu.greenhouse.io/agency/jobs/4778246101",
+                None,
+                None,
+                None,
+            ],
+        }
+    )
+    applied = {
+        "4778246101",  # applied through the form: its confirmation link
+        "conversational-ai-qa-specialist-x",  # /empleos/<category>/<slug> on getonbrd
+        "ai-trainer-swe-7",
+    }
+
+    assert list(drop_applied_links(leads, applied)["titulo"]) == ["Other"]
 
 
 @pytest.mark.parametrize(

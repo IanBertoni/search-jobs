@@ -72,6 +72,49 @@ def test_aitrainer_work_gives_each_listing_its_own_link_and_pay_band():
     assert "Spot failing edge cases" in trainer["descripcion"]
 
 
+def aitrainer_job(**fields):
+    job = {
+        "slug": "ai-coding-evaluator",
+        "platform": "micro1",
+        "title": "AI Coding Evaluator",
+        "first_seen": "2026-11-10T10:00:00.000Z",
+        "last_seen": "2026-11-12T10:00:00.000Z",
+        "geographic_restrictions": ["Remote"],
+        "apply_url": "https://jobs.micro1.ai/post/1?referralCode=x",
+        "description": "Review Python code.",
+    }
+    return {**job, **fields}
+
+
+def aitrainer_feed(*jobs):
+    payload = json.dumps({"jobs": list(jobs)}).encode()
+    return fetch_aitrainer_work(Session(Response(payload)), now=NOW)
+
+
+def test_aitrainer_work_keeps_the_direct_apply_link_unless_shared():
+    jobs = aitrainer_feed(
+        aitrainer_job(),
+        aitrainer_job(slug="b", platform="anyoneai", apply_url="https://any/?via=p"),
+        aitrainer_job(slug="c", platform="anyoneai", apply_url="https://any/?via=p"),
+    )
+
+    assert jobs["apply_link"].iloc[0] == "https://jobs.micro1.ai/post/1?referralCode=x"
+    # one referral link for the whole platform isn't the posting's form
+    assert jobs["apply_link"].iloc[1:].isna().all()
+
+
+def test_aitrainer_work_keeps_languages_and_eligible_countries():
+    jobs = aitrainer_feed(
+        aitrainer_job(languages=["German", "English"]),
+        aitrainer_job(slug="b", eligible_countries=["United States", "Canada"]),
+        aitrainer_job(slug="c"),
+    )
+
+    assert jobs["idiomas"].iloc[0] == "German, English"
+    assert jobs["pais"].iloc[1] == "United States, Canada"
+    assert jobs["pais"].iloc[2] == "Remote"
+
+
 def test_aitrainer_work_reads_the_open_data_feed_not_the_api():
     session = Session(Response((FIXTURES / "aitrainer_work_jobs.json").read_bytes()))
 

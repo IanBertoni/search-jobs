@@ -31,6 +31,9 @@ AITRAINER_WORK_FIELDS = [
     "pay_min",
     "pay_max",
     "geographic_restrictions",
+    "eligible_countries",
+    "languages",
+    "apply_url",
 ]
 # the feed keeps closed listings too; a platform is re-read every few days
 FRESH_DAYS = 14
@@ -46,6 +49,10 @@ logger = logging.getLogger(__name__)
 
 def _is_training(titles: pd.Series) -> pd.Series:
     return titles.fillna("").str.contains(AI_TRAINING_TITLE).astype(bool)
+
+
+def _joined(values: object) -> str | None:
+    return ", ".join(values) if isinstance(values, list) and values else None
 
 
 def fetch_aitrainer_work(
@@ -71,17 +78,24 @@ def fetch_aitrainer_work(
         logger.error("aitrainer.work: feed skipped: %s", error)
         return None
     listings = listings.reindex(columns=AITRAINER_WORK_FIELDS)
+    # some platforms (Anyone AI) share one referral link for every role: that's
+    # their landing page, not the posting's form, so only unique links are kept
+    shared = listings["apply_url"].duplicated(keep=False)
+    listings = listings.assign(apply_url=listings["apply_url"].mask(shared))
     last_seen = pd.to_datetime(
         listings["last_seen"], format="ISO8601", utc=True, errors="coerce"
     )
     fresh = now - last_seen <= pd.Timedelta(days=FRESH_DAYS)
     listings = listings[fresh & _is_training(listings["title"])]
+    # eligible_countries is the stricter list ("United States, Canada")
+    where = listings["eligible_countries"].map(_joined)
+    where = where.fillna(listings["geographic_restrictions"].map(_joined))
     return feed_jobs(
         pd.DataFrame(
             {
                 "titulo": listings["title"],
                 "empresa": listings["platform"],
-                # apply_url is one shared referral link per platform: useless as a key
+                # the aitrainer.work page stays the key and the CC BY link back
                 "link": AITRAINER_WORK_PAGE
                 + listings["platform"]
                 + "/"
@@ -92,11 +106,9 @@ def fetch_aitrainer_work(
                 ),
                 "min_salary": listings["pay_min"],
                 "max_salary": listings["pay_max"],
-                "pais": listings["geographic_restrictions"].map(
-                    lambda where: (
-                        ", ".join(where) if isinstance(where, list) and where else None
-                    )
-                ),
+                "pais": where,
+                "apply_link": listings["apply_url"],
+                "idiomas": listings["languages"].map(_joined),
             }
         )
     )

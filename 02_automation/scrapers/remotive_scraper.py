@@ -70,6 +70,8 @@ def feed_jobs(rows: pd.DataFrame) -> pd.DataFrame:
             min_salary=rows.get("min_salary"),
             max_salary=rows.get("max_salary"),
             pais=rows["pais"].fillna(UNKNOWN),
+            apply_link=rows.get("apply_link"),
+            idiomas=rows.get("idiomas"),
         )
     )
 
