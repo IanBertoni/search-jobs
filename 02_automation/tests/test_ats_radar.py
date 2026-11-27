@@ -219,3 +219,10 @@ def test_fetch_all_reads_each_board_and_skips_a_failing_one(monkeypatch):
 
     assert {j["empresa"] for j in jobs} == {"clara", "truelogic"}
     assert len(jobs) == 4
+
+
+def test_portal_companies_join_the_radar_without_duplicate_boards():
+    assert ats_radar.PORTAL_COMPANIES
+    assert set(ats_radar.PORTAL_COMPANIES) <= set(ats_radar.COMPANIES)
+    assert len(set(ats_radar.COMPANIES)) == len(ats_radar.COMPANIES)
+    assert {ats for ats, _ in ats_radar.COMPANIES} <= set(ats_radar.BOARD_URLS)

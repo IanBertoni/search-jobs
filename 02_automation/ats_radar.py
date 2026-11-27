@@ -49,6 +49,27 @@ COMPANIES = [
     *(("ashby", s) for s in ["supabase", "n8n", "zapier", "langchain", "llamaindex"]),
     *(("ashby", s) for s in ["pinecone", "weaviate", "modal"]),
 ]
+# remote-first companies from 03_tracking/company_portals.csv, boards verified
+# live on 2026-11-27 (GitHub, Automattic, Doist, Sourcegraph: not on these ATS)
+PORTAL_COMPANIES = [
+    *(
+        ("greenhouse", s)
+        for s in ["canonical", "stripe", "udacity", "gitlab", "reddit", "twilio"]
+    ),
+    *(
+        ("greenhouse", s)
+        for s in ["discord", "elastic", "datadog", "mongodb", "grafanalabs"]
+    ),
+    *(
+        ("greenhouse", s)
+        for s in ["tailscale", "dropbox", "algolia", "circleci", "pagerduty"]
+    ),
+    *(("greenhouse", s) for s in ["customerio", "mattermost"]),
+    *(("lever", s) for s in ["metabase", "fly", "collabora", "spotify", "toptal"]),
+    *(("ashby", s) for s in ["percona", "capchase", "webflow", "replit"]),
+    *(("ashby", s) for s in ["mapbox", "buffer", "helpscout"]),
+]
+COMPANIES = [*COMPANIES, *PORTAL_COMPANIES]
 
 TECH_TITLE = whole_words(
     [
