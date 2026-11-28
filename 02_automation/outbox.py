@@ -15,11 +15,12 @@ import argparse
 import json
 import logging
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import requests
 
+from analytics import APPLICATIONS_CSV, Application, append_applications
 from applied import drop_applied, load_applied
 from ats_radar import VERDICT_ORDER, candidates, fetch_all, screen
 from config import GROQ_API_KEY, TRACKING_DIR, setup_logging
@@ -97,6 +98,28 @@ def mark_sent(state: dict, links: list[str]) -> dict:
     return {**state, "sent": sent}
 
 
+def sent_applications(state: dict, links: list[str], today: date) -> list[Application]:
+    """applications.csv rows for links marked sent, company and title from the draft."""
+    apps = []
+    for link in links:
+        job = state["drafts"].get(link, {}).get("job", {})
+        if not job:
+            logger.warning(
+                "%s: no está en el outbox, completá empresa y puesto a mano", link
+            )
+        apps.append(
+            Application(
+                today,
+                job.get("empresa", ""),
+                job.get("titulo", ""),
+                link,
+                "ats",
+                "pending",
+            )
+        )
+    return apps
+
+
 def render(state: dict) -> str:
     """Unsent drafts still on the boards: apply before stretch, newest first."""
     sent = set(state["sent"])
@@ -148,7 +171,11 @@ def main() -> None:
         state = mark_sent(load_state(STATE), args.sent)
         save_state(STATE, state)
         OUTPUT.write_text(render(state), encoding="utf-8")
+        added = append_applications(
+            sent_applications(state, args.sent, date.today()), APPLICATIONS_CSV
+        )
         print(f"enviados: {len(args.sent)} -> {OUTPUT}")
+        print(f"applications.csv: {added} filas nuevas")
         return
     if not GROQ_API_KEY:
         sys.exit("GROQ_API_KEY missing in 02_automation/.env")

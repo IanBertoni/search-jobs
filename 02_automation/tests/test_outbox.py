@@ -1,7 +1,9 @@
 import json
+from datetime import date
 from unittest.mock import MagicMock
 
 import outbox
+from analytics import Application, load_applications
 from outbox import job_message, load_state, mark_sent, render, save_state, update
 
 EMPTY = {"drafts": {}, "skipped": [], "sent": [], "order": []}
@@ -193,3 +195,41 @@ def test_build_skips_companies_in_applied_txt_before_groq(tmp_path, monkeypatch)
     outbox.build(MagicMock())
 
     assert screened == ["a"]
+
+
+def test_sent_applications_take_company_and_title_from_the_draft():
+    link = job("supabase")["link"]
+    state = {**EMPTY, "drafts": {link: {"job": job("supabase"), "pitch": "P"}}}
+
+    apps = outbox.sent_applications(
+        state, [link, "https://other/9"], date(2026, 11, 28)
+    )
+
+    assert apps[0] == Application(
+        date(2026, 11, 28), "supabase", "Data Engineer", link, "ats", "pending"
+    )
+    # a link the outbox never drafted is still recorded, to fill in by hand
+    assert (apps[1].empresa, apps[1].link) == ("", "https://other/9")
+
+
+def test_main_sent_marks_the_state_and_records_the_application(tmp_path, monkeypatch):
+    link = job("percona")["link"]
+    save_state(
+        tmp_path / "state.json",
+        {**EMPTY, "drafts": {link: {"job": job("percona"), "pitch": "P"}}},
+    )
+    monkeypatch.setattr(outbox, "STATE", tmp_path / "state.json")
+    monkeypatch.setattr(outbox, "OUTPUT", tmp_path / "OUTBOX.md")
+    monkeypatch.setattr(outbox, "APPLICATIONS_CSV", tmp_path / "applications.csv")
+    monkeypatch.setattr(outbox, "setup_logging", lambda _v: None)
+    monkeypatch.setattr("sys.argv", ["outbox.py", "--sent", link])
+
+    outbox.main()
+
+    assert load_state(tmp_path / "state.json")["sent"] == [link]
+    [recorded] = load_applications(tmp_path / "applications.csv")
+    assert (recorded.empresa, recorded.link, recorded.estado) == (
+        "percona",
+        link,
+        "pending",
+    )

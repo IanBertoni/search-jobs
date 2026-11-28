@@ -4,6 +4,7 @@ File (git-ignored, personal): fecha_envio,empresa,puesto,link,canal,estado.
 fecha_envio is YYYY-MM-DD (empty if unknown: counted, never mature); estado is
 pending, rejected, interview or offer. Update estado when a company answers.
 Separate from applied_links.txt, which also lists closed and ineligible offers.
+`outbox.py --sent <link>` appends its rows; the rest go in by hand.
 Usage (from 02_automation/): python analytics.py
 """
 
@@ -15,6 +16,7 @@ from pathlib import Path
 from config import TRACKING_DIR
 
 APPLICATIONS_CSV = TRACKING_DIR / "applications.csv"
+COLUMNS = ["fecha_envio", "empresa", "puesto", "link", "canal", "estado"]
 STATES = {"pending", "rejected", "interview", "offer"}
 ANSWERED = STATES - {"pending"}
 INTERVIEWED = {"interview", "offer"}
@@ -67,6 +69,32 @@ def load_applications(path: Path = APPLICATIONS_CSV) -> list[Application]:
     with path.open(encoding="utf-8-sig", newline="") as file:
         # line 1 is the header
         return [_parse(row, line) for line, row in enumerate(csv.DictReader(file), 2)]
+
+
+def append_applications(apps: list[Application], path: Path = APPLICATIONS_CSV) -> int:
+    """Add the applications whose link isn't in the file yet; how many were added.
+
+    Rows without a link are always added: there is nothing to match them by.
+    """
+    known = {a.link for a in load_applications(path) if a.link}
+    new = []
+    for a in apps:
+        if a.link and a.link in known:
+            continue
+        known.add(a.link)
+        new.append(a)
+    if not new:
+        return 0
+    is_new_file = not path.exists()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8", newline="") as file:
+        writer = csv.writer(file)
+        if is_new_file:
+            writer.writerow(COLUMNS)
+        for a in new:
+            sent = a.fecha_envio.isoformat() if a.fecha_envio else ""
+            writer.writerow([sent, a.empresa, a.puesto, a.link, a.canal, a.estado])
+    return len(new)
 
 
 def summarize(apps: list[Application], today: date) -> Summary:

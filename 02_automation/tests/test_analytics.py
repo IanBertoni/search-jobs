@@ -1,7 +1,14 @@
 from datetime import date
 
 import pytest
-from analytics import Application, load_applications, render, summarize
+
+from analytics import (
+    Application,
+    append_applications,
+    load_applications,
+    render,
+    summarize,
+)
 
 HEADER = "fecha_envio,empresa,puesto,link,canal,estado\n"
 TODAY = date(2026, 12, 15)
@@ -92,3 +99,20 @@ def test_render_breaks_the_rate_down_by_channel():
 
 def test_render_says_when_there_is_no_mature_data_yet():
     assert "sin datos maduros" in render([app("2026-12-10")], TODAY)
+
+
+def test_append_applications_creates_the_file_and_skips_known_links(tmp_path):
+    csv = tmp_path / "applications.csv"
+    first = app("2026-11-28")
+
+    assert append_applications([first], csv) == 1
+    assert append_applications([first, app("2026-11-28", canal="email")], csv) == 0
+
+    assert load_applications(csv) == [first]
+
+
+def test_append_applications_keeps_rows_without_a_link(tmp_path):
+    csv = tmp_path / "applications.csv"
+    no_link = Application(None, "Canonical", "Python", "", "ats", "pending")
+
+    assert append_applications([no_link, no_link], csv) == 2
