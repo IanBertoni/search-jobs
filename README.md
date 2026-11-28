@@ -46,7 +46,7 @@ Each module follows the same loop: **observe → evaluate → act → check the 
 
 LLMs are confidently wrong, so the agent never trusts a reply as is.
 
-- **400 automated tests** (pytest) cover the scrapers, filters, matcher and
+- **474 automated tests** (pytest) cover the scrapers, filters, matcher and
   guardrails. Scrapers run on saved API/RSS fixtures, and the LLM is mocked, so the suite
   runs offline in about 3 seconds.
 - **Deterministic filter before the LLM.** Hard rules drop posts that
@@ -63,6 +63,17 @@ LLMs are confidently wrong, so the agent never trusts a reply as is.
 - **Data validation at the boundaries.** HTML is stripped from API text,
   malformed JSON and HTTP errors are logged and skipped per lead (one bad reply
   doesn't kill the batch), and settings come from `.env` with checked types.
+
+## What else is in here
+
+| Module | What it does |
+|---|---|
+| `radar_watch.py` + `hn_radar.py` | Every 30 min (Windows Task Scheduler or cron): new posts in HN "Who is hiring?" and "Seeking freelancer?" that pass the filter get a pitch and a Telegram alert. At most 5 per run; alerted links are remembered. |
+| `ats_radar.py` + `outbox.py` | Public Greenhouse, Lever and Ashby job boards of remote companies. Groq judges only new postings and the ones that fit get a pitch in `03_tracking/OUTBOX.md`. `python outbox.py --sent <link>` takes one out and logs the application. |
+| `gmail_drafts.py` | `cold_outreach.py --gmail-drafts` saves each founder email as a Gmail **draft** (scope `gmail.compose`). It never sends. |
+| `analytics.py` | Real response rate from `03_tracking/applications.csv`: total, mature applications (14+ days), answers, and the same rate per channel. |
+| `applied.py` | Companies in `03_tracking/applied.txt` (`company | status`) are dropped before any Groq call, in every flow. |
+| `pitch.py` | Every pitch uses your private giga prompt (below) as the system prompt. |
 
 ## Free Giga Prompt for Freelancers
 
@@ -81,7 +92,8 @@ Paste a job or project description into it and the model returns:
 
 How to use it:
 
-1. Copy the template to a private file and add it to `.gitignore`.
+1. Copy the template to `01_assets/pitch/giga_prompt_private.txt` (already
+   git-ignored). `pitch.py` reads that exact path, so the radars need it too.
 2. Replace every `[PLACEHOLDER]` (`[TU_NOMBRE]`, `[TU_STACK_TECNOLOGICO]`,
    `[PROYECTO_1_DESCRIPCION]`, `[TU_GITHUB]`...) with your own data. Write only
    what a client can check: the model repeats your claims in every pitch.
@@ -93,26 +105,69 @@ How to use it:
 
 Python 3 · requests · pandas · Groq (`openai/gpt-oss-120b`) · pytest + pytest-cov · ruff
 
-## Run it
+## Run it from scratch
 
-```bash
-pip install -r requirements.txt
-cd 02_automation
-cp .env.example .env                      # add GROQ_API_KEY
-python -m pytest -q                       # 400 tests, offline
-python -m scrapers.getonboard_scraper     # collect leads
-python tailoring_engine.py --top 5        # pitch + CV per lead
-python cold_outreach.py --top 5           # founder emails from HN (--gmail-drafts)
-python radar_watch.py                     # HN posts: pitch + Telegram alert
-python outbox.py                          # ATS leads: pitches in OUTBOX.md
-```
+Requires Python 3.11+. Every script runs from `02_automation/`.
+
+1. **Install**
+
+   ```bash
+   git clone https://github.com/IanBertoni/search-jobs.git && cd search-jobs
+   python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   cd 02_automation
+   python -m pytest -q          # 474 tests, offline, no keys needed
+   ```
+
+2. **Configure** — `cp .env.example .env`, then fill in:
+
+   | Variable | Needed by | Where to get it |
+   |---|---|---|
+   | `GROQ_API_KEY` | every pitch and judgment (`outbox.py`, `cold_outreach.py`, `radar_watch.py`, `tailoring_engine.py`) | free key at console.groq.com |
+   | `TELEGRAM_BOT_TOKEN` | `radar_watch.py` | create a bot with @BotFather |
+   | `TELEGRAM_CHAT_ID` | `radar_watch.py` | send your bot a message, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` |
+
+   The rest of `.env.example` are filters with working defaults.
+
+3. **Write your giga prompt** — copy `01_assets/pitch/giga_prompt_template.txt`
+   to `01_assets/pitch/giga_prompt_private.txt` and replace every placeholder
+   with your own, checkable data. Without it the radars stop with
+   `FileNotFoundError` (`radar_watch.py` still alerts, without a pitch).
+
+4. **Gmail drafts (optional)**
+   1. In Google Cloud Console: create a project and enable the Gmail API.
+   2. OAuth consent screen: "External", add yourself as a test user.
+   3. Credentials → OAuth client ID → "Desktop app"; download the JSON as
+      `02_automation/.secrets/gmail_client_secret.json` (git-ignored).
+   4. The first `python cold_outreach.py --gmail-drafts` opens the browser to
+      authorize; the token is saved next to it and refreshed on its own.
+
+5. **Run**
+
+   ```bash
+   python outbox.py                          # ATS boards: pitches in 03_tracking/OUTBOX.md
+   python outbox.py --sent <link>            # you applied: out of the outbox, into applications.csv
+   python radar_watch.py                     # HN posts: pitch + Telegram alert
+   python cold_outreach.py --top 5           # founder emails from HN (--gmail-drafts, --all-levels)
+   python -m scrapers.getonboard_scraper     # collect leads (Get on Board, AI-training feeds)
+   python apply_today.py                     # today's shortlist in 03_tracking/to_apply.md
+   python tailoring_engine.py --top 5        # pitch + CV per lead
+   python analytics.py                       # real response rate
+   ```
+
+   To run the HN radar every 30 min, point Windows Task Scheduler (or cron) at
+   `python radar_watch.py` with `02_automation/` as the working directory.
+
+Everything personal (`.env`, `.secrets/`, `03_tracking/`, the private giga
+prompt, CVs) is git-ignored. Before you push, check `git status` for anything
+with your data in it.
 
 ## Layout
 
 ```
 01_assets/      CV and base pitches
 02_automation/  scrapers/, matcher/, cold_outreach.py, tailoring_engine.py, tests/
-03_tracking/    leads, tailored applications, outreach drafts
+03_tracking/    leads, outbox, applications, outreach drafts (git-ignored, created on first run)
 ```
 
 Scraping follows robots.txt and rate limits, and uses public APIs or RSS

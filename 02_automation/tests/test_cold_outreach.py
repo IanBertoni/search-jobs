@@ -146,8 +146,10 @@ def test_parse_drops_dealbreakers_without_calling_groq(text):
     "text",
     [
         # a candidate posting in the hiring thread by mistake
-        "Jane Doe | Backend Engineer | India (REMOTE)<p>Python. I'm currently "
-        "looking for Software Engineer or Backend Engineer opportunities.",
+        (
+            "Jane Doe | Backend Engineer | India (REMOTE)<p>Python. I'm currently "
+            "looking for Software Engineer or Backend Engineer opportunities."
+        ),
         "Jo | Python Developer | Remote<p>Resume: https://example.com/cv",
         "Jo | Python Developer | Remote<p>Open to work, feel free to reach out.",
     ],
