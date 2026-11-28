@@ -31,3 +31,7 @@ rae-run.*
 /scripts/
 # private giga prompt: real profile data (the template is the public one)
 01_assets/pitch/giga_prompt_private.txt
+# personal work log and Claude Code setup (rules, third-party skills): local only
+progress.md
+.claude/
+skills-lock.json
