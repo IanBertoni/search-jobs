@@ -77,6 +77,14 @@ FIT_TITLE_KEYWORDS = _env(
     "FIT_TITLE_KEYWORDS", "coding,code,python,software,swe,backend", _keywords
 )
 
+# where you can work from: a posting must name one of these (or plain "Remote")
+# to count as reachable in ats_radar.py, cold_outreach.py and getonboard_scraper.py
+TARGET_REGIONS = _env(
+    "TARGET_REGIONS",
+    "argentina,buenos aires,latam,latin america,latinoamerica,south america"
+    ",americas,amer,worldwide,world wide,global,anywhere,most countries",
+    _keywords,
+)
 # locked to the US: dealbreakers in cold_outreach.py and apply_today.py
 US_ONLY_KEYWORDS = [
     "us only",

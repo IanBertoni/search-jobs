@@ -23,6 +23,7 @@ from config import (
     REQUEST_DELAY_S,
     SENIORITY_IDS,
     STACK_KEYWORDS,
+    TARGET_REGIONS,
     TRACKING_DIR,
     setup_logging,
 )
@@ -106,12 +107,9 @@ REMOTE_MODALITY = {
     "hybrid": "Hybrid",
     "no_remote": "On-site",
 }
-# country is a priority, never a filter: P1 anywhere/LATAM, P2 unclear or
-# country-specific, P3 must live elsewhere (still listed, ranked last)
-ANYWHERE = re.compile(
-    r"\b(?:argentina|latam|latin america|world ?wide|anywhere|global|most countries)\b",
-    re.IGNORECASE,
-)
+# country is a priority, never a filter: P1 a TARGET_REGIONS place (.env), P2
+# unclear or country-specific, P3 must live elsewhere (still listed, ranked last)
+ANYWHERE = whole_words(TARGET_REGIONS)
 ONLY_THERE = re.compile(r"\bonly\b|^hybrid\b|^on-site\b", re.IGNORECASE)
 MUST_LIVE_THERE = re.compile(
     r"must be (?:based|located|residing) in|\b(?:eu|uk|us|usa)[- ]only\b"

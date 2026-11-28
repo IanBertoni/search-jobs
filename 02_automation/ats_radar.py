@@ -22,7 +22,13 @@ from datetime import UTC, datetime
 
 import requests
 
-from config import GROQ_API_KEY, REQUEST_DELAY_S, TRACKING_DIR, setup_logging
+from config import (
+    GROQ_API_KEY,
+    REQUEST_DELAY_S,
+    TARGET_REGIONS,
+    TRACKING_DIR,
+    setup_logging,
+)
 from matcher.seniority_judge import judge_fit
 from scrapers.getonboard_scraper import TIMEOUT_S, html_to_text, whole_words
 
@@ -50,6 +56,10 @@ COMPANIES = [
     *(("ashby", s) for s in ["pinecone", "weaviate", "modal"]),
 ]
 # remote-first companies from 03_tracking/company_portals.csv, boards verified
+# EXAMPLE LIST, edit it for your own search: each entry is (ats, board slug), the
+# slug being the last part of the company's careers URL on that ATS, e.g.
+# boards.greenhouse.io/<slug>, jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>.
+# Add or remove companies freely; a slug that answers 404 is logged and skipped.
 # live on 2026-11-27 (GitHub, Automattic, Doist, Sourcegraph: not on these ATS)
 PORTAL_COMPANIES = [
     *(
@@ -106,20 +116,7 @@ SENIOR_TITLE = whole_words(
         "iv",
     ]
 )
-FROM_ARGENTINA = whole_words(
-    [
-        "argentina",
-        "buenos aires",
-        "latam",
-        "latin america",
-        "latinoamerica",
-        "americas",
-        "amer",
-        "global",
-        "worldwide",
-        "anywhere",
-    ]
-)
+FROM_TARGET_REGION = whole_words(TARGET_REGIONS)  # set it in .env
 REMOTE_WORDS = re.compile(r"remote|remoto|[\W_]", re.IGNORECASE)
 
 # Groq free tier is tokens-per-minute bound: pace calls, wait out a 429 once
@@ -221,8 +218,8 @@ PARSERS = {"greenhouse": greenhouse_jobs, "lever": lever_jobs, "ashby": ashby_jo
 
 
 def location_ok(ubicacion: str, remoto: bool) -> bool:
-    """Argentina/LatAm/global, or plain "Remote" with no country attached."""
-    return bool(FROM_ARGENTINA.search(ubicacion)) or (
+    """A TARGET_REGIONS place (.env), or plain "Remote" with no country attached."""
+    return bool(FROM_TARGET_REGION.search(ubicacion)) or (
         remoto and not REMOTE_WORDS.sub("", ubicacion)
     )
 

@@ -42,3 +42,27 @@ def test_keywords_splits_and_trims():
         "machine learning",
         "ia",
     ]
+
+
+def test_target_regions_default_to_argentina_latam_and_worldwide():
+    assert {"argentina", "latam", "worldwide", "global"} <= set(config.TARGET_REGIONS)
+
+
+def test_target_regions_can_be_set_in_env(monkeypatch):
+    monkeypatch.setenv("TARGET_REGIONS", "Europe, EMEA ,worldwide")
+
+    regions = config._env("TARGET_REGIONS", "", config._keywords)
+
+    assert regions == ["Europe", "EMEA", "worldwide"]
+
+
+@pytest.mark.parametrize("region", config.TARGET_REGIONS)
+def test_every_radar_accepts_each_target_region(region):
+    import ats_radar
+    import cold_outreach
+    from scrapers import getonboard_scraper
+
+    location = f"Remote - {region}"
+    assert ats_radar.FROM_TARGET_REGION.search(location)
+    assert cold_outreach.OPEN_REGION.search(location)
+    assert getonboard_scraper.ANYWHERE.search(location)

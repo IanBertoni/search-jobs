@@ -1,5 +1,7 @@
 # Agentic Job Search Automation (Python + LLMs)
 
+An agent system to search for jobs and automate pitches.
+
 A small agent pipeline that finds remote Data & AI roles, decides which ones are
 worth my time, and drafts the application text with an LLM, so the only
 step I do by hand is hitting "send".
@@ -127,7 +129,10 @@ Requires Python 3.11+. Every script runs from `02_automation/`.
    | `TELEGRAM_BOT_TOKEN` | `radar_watch.py` | create a bot with @BotFather |
    | `TELEGRAM_CHAT_ID` | `radar_watch.py` | send your bot a message, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` |
 
-   The rest of `.env.example` are filters with working defaults.
+   The rest of `.env.example` are filters with working defaults. Set
+   `TARGET_REGIONS` to the places you can work from (the default is
+   Argentina/LATAM/worldwide), and edit `PORTAL_COMPANIES` in `ats_radar.py`
+   with the companies you want to watch.
 
 3. **Write your giga prompt** — copy `01_assets/pitch/giga_prompt_template.txt`
    to `01_assets/pitch/giga_prompt_private.txt` and replace every placeholder

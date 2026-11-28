@@ -26,6 +26,7 @@ from config import (
     GROQ_BASE_URL,
     GROQ_MODEL,
     REQUEST_DELAY_S,
+    TARGET_REGIONS,
     TRACKING_DIR,
     US_ONLY_KEYWORDS,
     setup_logging,
@@ -65,17 +66,11 @@ CLOSED = whole_words(["no longer", "closed", "filled"])
 # dealbreakers: dropped before Groq, no email is worth these
 VISA = whole_words(US_ONLY_KEYWORDS)
 # "Remote (Canada)", "(EEA)", "(US)" tie the job to a region: dropped unless the
-# parentheses open it to Argentina; "Remote (US, LATAM)" and timezones stay
+# parentheses name a TARGET_REGIONS one; "Remote (US, LATAM)" and timezones stay
 REMOTE_REGION = re.compile(r"remote\s*\(([^)]*)\)", re.IGNORECASE)
 OPEN_REGION = whole_words(
     [
-        "worldwide",
-        "global",
-        "latam",
-        "latin america",
-        "argentina",
-        "americas",
-        "anywhere",
+        *TARGET_REGIONS,
         "utc",
         "gmt",
         "timezone",
