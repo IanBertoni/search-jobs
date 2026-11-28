@@ -128,9 +128,12 @@ TARGET_LEVEL = re.compile(
 
 def _jobs_in(payload: Any, path: str) -> list[dict]:
     jobs = payload.get("data") if isinstance(payload, dict) else None
-    if not isinstance(jobs, list) or not jobs:
-        logger.warning("%s: empty or malformed JSON payload, no jobs taken", path)
+    if not isinstance(jobs, list):
+        logger.warning("%s: malformed JSON payload, no jobs taken", path)
         return []
+    if not jobs:
+        # a search without results today ("evaluator", "trainer"): the API works
+        logger.info("%s: 0 jobs", path)
     return jobs
 
 
@@ -172,7 +175,7 @@ def fetch_jobs(
 
     Each request has a 10 s timeout and is retried with exponential backoff
     (1 s, 2 s, 4 s); a 4xx other than 429 fails at once. A source that still
-    fails, or answers with empty or malformed JSON, is logged and skipped.
+    fails, or answers with malformed JSON, is logged and skipped.
 
     Args:
         session: HTTP session to use. Defaults to a new ``requests.Session``.

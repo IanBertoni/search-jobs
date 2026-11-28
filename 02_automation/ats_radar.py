@@ -40,7 +40,7 @@ COMPANIES = [
         for s in ["wizeline", "clara", "cobre", "vtex", "quintoandar", "ebanx"]
     ),
     *(("greenhouse", s) for s in ["gympass", "vercel"]),
-    *(("lever", s) for s in ["kavak", "lahaus", "fintual", "xepelin", "yuno", "toku"]),
+    *(("lever", s) for s in ["kavak", "fintual", "xepelin", "yuno", "toku"]),
     *(
         ("ashby", s)
         for s in ["nubank", "belvo", "addi", "truelogic", "kueski", "flink"]

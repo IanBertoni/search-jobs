@@ -20,6 +20,7 @@ from config import (
     MIN_SCORE,
     PROFILE_KEYWORDS,
     TRACKING_DIR,
+    US_ONLY_KEYWORDS,
     setup_logging,
 )
 from scrapers.getonboard_scraper import (
@@ -118,6 +119,15 @@ OTHER_FIELD_TITLE = whole_words(
 # "3+ years", "3–7 years", "at least 3 years", "5 años": the first number counts
 YEARS = re.compile(r"(\d+)\s*(?:\+|[-–]\s*\d+)?\s*(?:years|yrs|años)", re.IGNORECASE)
 MAX_YEARS = 3  # 3 or more is out of reach for Ian
+US_ONLY = whole_words(US_ONLY_KEYWORDS)
+# "US based" alone is often the company ("US-based startup hiring worldwide"):
+# only the phrasings that put the candidate in the US count
+US_RESIDENT = re.compile(
+    r"\bunited states only\b"
+    r"|\b(?:located|based|residing) in the (?:us|u\.s\.|usa|united states)\b"
+    r"|\bus[- ]based (?:candidates|applicants|residents)\b",
+    re.IGNORECASE,
+)
 UNPAID = whole_words(["unpaid", "ad honorem", "no remunerada", "no remunerado"])
 # unpaid is fine only with a concrete path to a paid role (progress.md)
 HIRE_PATH = re.compile(
@@ -152,14 +162,15 @@ def reachable(leads: pd.DataFrame) -> pd.Series:
     """True for offers Ian can take from home today.
 
     Drops on-site, hybrid or country-locked offers (keeps P1 and unknown
-    locations), other required languages, Senior titles or 3+ years, experts
-    of other fields (physics, law...) and unpaid offers without a path to a
-    paid role.
+    locations unless the requirements lock them to the US), other required
+    languages, Senior titles or 3+ years, experts of other fields (physics,
+    law...) and unpaid offers without a path to a paid role.
     """
     titles = _column(leads, "titulo")
     text = titles + " " + _column(leads, "requisitos")
     pais = _column(leads, "pais", UNKNOWN)
     remote = (_column(leads, "priority") == "P1") | (pais.str.strip() == UNKNOWN)
+    remote &= ~(text.str.contains(US_ONLY) | text.str.contains(US_RESIDENT))
     language = _column(leads, "idiomas").map(_needs_other_language) | text.str.contains(
         OTHER_LANGUAGE
     )

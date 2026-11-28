@@ -27,6 +27,7 @@ from config import (
     GROQ_MODEL,
     REQUEST_DELAY_S,
     TRACKING_DIR,
+    US_ONLY_KEYWORDS,
     setup_logging,
 )
 from gmail_drafts import create_draft, find_email, gmail_session
@@ -62,22 +63,7 @@ TARGET_ROLE = whole_words(
 )
 CLOSED = whole_words(["no longer", "closed", "filled"])
 # dealbreakers: dropped before Groq, no email is worth these
-VISA = whole_words(
-    [
-        "us only",
-        "us-only",
-        "us citizen",
-        "us citizens",
-        "us citizenship",
-        "u.s. citizen",
-        "u.s. citizenship",
-        "green card",
-        "h1b",
-        "h-1b",
-        "defense eligibility",
-        "u.s. defense",
-    ]
-)
+VISA = whole_words(US_ONLY_KEYWORDS)
 # "Remote (Canada)", "(EEA)", "(US)" tie the job to a region: dropped unless the
 # parentheses open it to Argentina; "Remote (US, LATAM)" and timezones stay
 REMOTE_REGION = re.compile(r"remote\s*\(([^)]*)\)", re.IGNORECASE)

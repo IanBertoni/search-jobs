@@ -266,10 +266,8 @@ def test_keep_target_levels_falls_back_to_keywords(titulo, descripcion, kept):
     assert len(keep_target_levels(jobs)) == int(kept)
 
 
-@pytest.mark.parametrize("payload", [{}, {"data": []}, {"data": None}, [], None])
-def test_fetch_jobs_warns_and_returns_empty_on_empty_or_malformed_payload(
-    payload, caplog
-):
+@pytest.mark.parametrize("payload", [{}, {"data": None}, [], None])
+def test_fetch_jobs_warns_and_returns_empty_on_malformed_payload(payload, caplog):
     sleeps = []
 
     jobs, failed = fetch_jobs(
@@ -277,9 +275,24 @@ def test_fetch_jobs_warns_and_returns_empty_on_empty_or_malformed_payload(
     )
 
     assert jobs == []
-    assert "empty or malformed JSON payload" in caplog.text
-    assert failed == []  # an empty answer is not a failed source
+    assert "malformed JSON payload" in caplog.text
+    assert failed == []  # a well-formed HTTP answer is not a failed source
     assert set(sleeps) == {0}  # a well-formed HTTP answer is not retried
+
+
+def test_fetch_jobs_logs_a_search_without_results_as_info_not_warning(caplog):
+    # "evaluator" or "trainer" often have 0 jobs: the API works, it's just empty
+    caplog.set_level("INFO")
+
+    jobs, failed = fetch_jobs(
+        session=FakeSession({"data": [], "meta": {"total_pages": 1}}),
+        delay=0,
+        sleep=lambda _: None,
+    )
+
+    assert jobs == [] and failed == []
+    assert "0 jobs" in caplog.text
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]
 
 
 def test_fetch_jobs_returns_empty_when_body_is_not_json(caplog):

@@ -77,6 +77,22 @@ FIT_TITLE_KEYWORDS = _env(
     "FIT_TITLE_KEYWORDS", "coding,code,python,software,swe,backend", _keywords
 )
 
+# locked to the US: dealbreakers in cold_outreach.py and apply_today.py
+US_ONLY_KEYWORDS = [
+    "us only",
+    "us-only",
+    "us citizen",
+    "us citizens",
+    "us citizenship",
+    "u.s. citizen",
+    "u.s. citizenship",
+    "green card",
+    "h1b",
+    "h-1b",
+    "defense eligibility",
+    "u.s. defense",
+]
+
 GROQ_API_KEY = _env("GROQ_API_KEY", "")
 GROQ_MODEL = _env("GROQ_MODEL", "openai/gpt-oss-120b")
 GROQ_BASE_URL = _env("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/")

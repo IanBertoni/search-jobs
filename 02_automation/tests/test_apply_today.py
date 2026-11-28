@@ -259,6 +259,33 @@ def test_select_top_keeps_up_to_two_years():
     assert len(select_top(evaluator(requisitos="1+ years | Python"))) == 1
 
 
+@pytest.mark.parametrize(
+    "requisitos",
+    [
+        "US only | Python",
+        "Must be a US citizen | Python",
+        "Python | United States only",
+        "Python | Must be located in the US",
+        "Candidates must be based in the United States",
+        "Open to US-based candidates only",
+    ],
+)
+def test_select_top_drops_us_only_named_in_the_requirements(requisitos):
+    # pais says "Remote" but the description locks it to the US
+    assert select_top(evaluator(requisitos=requisitos)).empty
+
+
+@pytest.mark.parametrize(
+    "requisitos",
+    [
+        "We're a US-based company hiring worldwide | Python",
+        "US based startup, fully remote team in 20 countries",
+    ],
+)
+def test_select_top_keeps_us_based_companies_hiring_anywhere(requisitos):
+    assert len(select_top(evaluator(requisitos=requisitos))) == 1
+
+
 def test_select_top_drops_unpaid_unless_it_leads_to_a_hire():
     unpaid = evaluator(requisitos="This is an unpaid internship | Python")
     to_hire = evaluator(requisitos="Unpaid for 2 months, then conversion to full-time")
